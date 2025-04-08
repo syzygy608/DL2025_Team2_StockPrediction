@@ -4,6 +4,7 @@ import zipfile
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
+import tqdm
 
 # 1. 自動下載數據集
 def download_stocknet_dataset(save_dir="../dataset"):
@@ -15,11 +16,21 @@ def download_stocknet_dataset(save_dir="../dataset"):
     if not os.path.exists(zip_path):
         print("正在下載 StockNet dataset...")
         response = requests.get(url, stream=True)
+        if response.status_code != 200:
+            raise Exception(f"下載失敗，狀態碼: {response.status_code}")
         with open(zip_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
-        print("下載完成！")
+            # 使用 tqdm 進度條顯示下載進度
+            total_size = int(response.headers.get('content-length', 0))
+            block_size = 1024  # 每次下載的塊大小
+            progress_bar = tqdm.tqdm(total=total_size, unit='iB', unit_scale=True)
+            for data in response.iter_content(block_size):
+                f.write(data)
+                progress_bar.update(len(data))
+            progress_bar.close()
+        if total_size != 0 and progress_bar.n != total_size:
+            raise Exception("下載不完整！")
+        else:
+            print("下載完成！")
     
     # 解壓文件
     extract_path = os.path.join(save_dir, "extracted")
@@ -44,16 +55,21 @@ class StockNetDataset(Dataset):
         self.window_size = window_size
         self.transform = transform
         
-        # 加載價格數據（假設有一個 price.csv 文件）
-        price_file = os.path.join(data_dir, "price", "raw", "price.csv")  # 根據實際文件路徑調整
-        if not os.path.exists(price_file):
-            raise FileNotFoundError(f"未找到價格數據文件: {price_file}")
+        # read all csv files in the directory
+        self.features = []
+        for filename in os.listdir(data_dir):
+            if filename.endswith(".csv"):
+                file_path = os.path.join(data_dir, filename)
+                df = pd.read_csv(file_path, usecols=[1])
+                # 只保留數據列
+                self.features.append(df.values.flatten())
         
-        self.price_data = pd.read_csv(price_file)
-        self.price_data['Date'] = pd.to_datetime(self.price_data['Date'])
-        self.price_data.set_index('Date', inplace=True)
-        
-    
+        self.features = torch.tensor(self.features, dtype=torch.float32)
+        # 將所有數據拼接在一起
+        self.features = self.features.view(-1).numpy()
+
+        print(f"數據集大小: {len(self.features)}")
+      
     def __len__(self):
         return len(self.features) - self.window_size + 1
     

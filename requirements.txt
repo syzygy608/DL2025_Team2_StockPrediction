@@ -1,5 +1,4 @@
 requests
-zipfile
 pandas
 torch
-torchboard
+tensorboard
