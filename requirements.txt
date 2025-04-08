@@ -1,0 +1,5 @@
+requests
+zipfile
+pandas
+torch
+torchboard

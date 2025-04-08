@@ -5,7 +5,6 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-
 # 1. 自動下載數據集
 def download_stocknet_dataset(save_dir="../dataset"):
     url = "https://github.com/yumoxu/stocknet-dataset/archive/refs/heads/master.zip"  # StockNet GitHub 倉庫
