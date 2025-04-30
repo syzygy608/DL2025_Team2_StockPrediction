@@ -124,7 +124,7 @@ class TimeSeriesDataset:
         return logp_tensor
 
     def create_dataset(self):
-        input_cols = ['Company_id', 'Year', 'Month', 'Day', 'Open', 'High', 'Low', 'Adj Close', 'Volume']
+        input_cols = ['Company_id', 'Year', 'Month', 'Day', 'Open', 'High', 'Low', 'Volume']
         output_cols = ['Close']
 
         tensors = []
