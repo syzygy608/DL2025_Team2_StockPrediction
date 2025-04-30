@@ -179,7 +179,7 @@ def load_dataset(mode, data_dir="../dataset"):
     """
     path = os.path.dirname(__file__)
     path = os.path.join(path, data_dir)
-    data = pd.read_csv(os.path.join(path, 'processed_data.csv'))
+    data = pd.read_csv(os.path.join(path, 'preprocessed_data.csv'))
     dataset = TimeSeriesDataset(data=data, look_back=7)
     dataset.split_data(train_size=0.8, val_size=0.1)
     
