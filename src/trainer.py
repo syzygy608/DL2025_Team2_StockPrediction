@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from evaluate import RMSLELoss, relative_error_accuracy
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -76,7 +77,9 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
             best_val_loss = val_loss_avg
             best_model = model.state_dict()
             print(f"Best model saved at epoch {epoch+1} with val loss: {best_val_loss:.4f}")
-            torch.save(best_model, './saved_model/best_model.pth')
+            current_dir = os.path.dirname(__file__)
+            parrent_dir = os.path.join(current_dir, "../")
+            torch.save(best_model, os.path.join(parrent_dir, '/saved_model/best_model.pth'))
 
     writer.close()
     progress_bar.close()
