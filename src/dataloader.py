@@ -88,6 +88,13 @@ def preprocess_data(data_dir):
     combined_data = pd.concat(all_data, ignore_index=True)
     combined_data = combined_data.dropna()  # 去除缺失值
     combined_data = combined_data.reset_index(drop=True)  # 重設索引
+
+    # 將 Date 切分成 年、月、日三個欄位
+    combined_data["Date"] = pd.to_datetime(combined_data["Date"])
+    combined_data["Year"] = combined_data["Date"].dt.year
+    combined_data["Month"] = combined_data["Date"].dt.month
+    combined_data["Day"] = combined_data["Date"].dt.day
+    combined_data = combined_data.drop(columns=["Date"])  # 刪除原始的 Date 欄位
     
     # 將 Company_id 放到最前面
     cols = list(combined_data.columns)
@@ -117,14 +124,14 @@ class TimeSeriesDataset:
         return logp_tensor
 
     def create_dataset(self):
-        input_cols = ['Company_id' , 'Date' , 'Open', 'High', 'Low', 'Adj Close', 'Volume']
+        input_cols = ['Company_id', 'Year', 'Month', 'Day', 'Open', 'High', 'Low', 'Adj Close', 'Volume']
         output_cols = ['Close']
 
         tensors = []
         targets = []
 
         for id in self.data['Company_id'].unique():
-            group = self.data[self.data['Company_id'] == id].sort_values(['Date'])
+            group = self.data[self.data['Company_id'] == id].sort_values(['Year', 'Month', 'Day'])
 
             if len(group) < self.look_back:
                 print(f"Skipping {id}: only {len(group)} rows, need at least {self.look_back}")

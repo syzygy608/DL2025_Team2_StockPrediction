@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class GRUPredictor(nn.Module):
-    def __init__(self, input_size=7, hidden_size=64, num_layers=2, output_size=1, dropout=0):
+    def __init__(self, input_size=9, hidden_size=64, num_layers=2, output_size=1, dropout=0):
         super(GRUPredictor, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
