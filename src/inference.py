@@ -52,6 +52,7 @@ def main():
         # Log loss and accuracy
         writer.add_scalar('Test/True', targets, batch_idx)
         writer.add_scalar('Test/Output', outputs, batch_idx)
+        writer.add_scalar('Test/ACC', relative_error_accuracy(outputs, targets).item(), batch_idx)
 
         progress_bar.update(1)
     
