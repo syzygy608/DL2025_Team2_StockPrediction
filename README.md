@@ -4,9 +4,10 @@ Introduction to Deep Learning Course 2025 of CCU Team Project
 ## Model introduction
 
 A GRU based stock price prediction model with GRU layers.
-Implemented with Pytorch and trained on stocknet-dataset[https://github.com/yumoxu/stocknet-dataset/]
+Implemented with Pytorch and trained on [stocknet-dataset](https://github.com/yumoxu/stocknet-dataset/)
 
-@inproceedings{xu-cohen-2018-stock,
+
+{xu-cohen-2018-stock,
     title = "Stock Movement Prediction from Tweets and Historical Prices",
     author = "Xu, Yumo  and
       Cohen, Shay B.",
