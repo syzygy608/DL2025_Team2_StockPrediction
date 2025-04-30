@@ -153,6 +153,20 @@ class TimeSeriesDataset:
         targets = torch.stack(targets)
         return tensors, targets
 
+    def standardize_tensor(self, tensor, reference_tensor=None):
+        if reference_tensor is not None:
+            mean = reference_tensor.mean(dim=(0, 1), keepdim=True)
+            std = reference_tensor.std(dim=(0, 1), keepdim=True)
+        else:
+            mean = tensor.mean(dim=(0, 1), keepdim=True)
+            std = tensor.std(dim=(0, 1), keepdim=True)
+        
+        std = torch.where(std == 0, torch.tensor(1.0, device=std.device), std)
+        normalized_tensor = (tensor - mean) / std
+        
+        print(f"Standardized tensor - Mean: {normalized_tensor.mean().item():.4f}, Std: {normalized_tensor.std().item():.4f}")
+        return normalized_tensor, mean, std
+
     def split_data(self, train_size=0.8, val_size=0.1):
         X, y = self.create_dataset()
         total_len = len(X)

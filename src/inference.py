@@ -1,7 +1,6 @@
 from model.model import GRUPredictor
 from dataloader import load_dataset
 import torch
-import torch.nn as nn
 import numpy as np
 import argparse
 from torch.utils.data import DataLoader

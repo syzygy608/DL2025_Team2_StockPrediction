@@ -23,10 +23,7 @@ def relative_error_accuracy(y_pred, y_true, eps=1e-8):
     Returns:
         accuracy: 相對誤差
     """
-    y_pred = torch.clamp(y_pred, min=0)
-    y_true = torch.clamp(y_true, min=0)
     relative_error = torch.abs(y_pred - y_true) / (y_true + eps)
     mre = relative_error.mean()
     accuracy = 1 - mre
-    accuracy = torch.clamp(accuracy, min=0, max=1)  # 確保準確度在0到1之間
     return accuracy
