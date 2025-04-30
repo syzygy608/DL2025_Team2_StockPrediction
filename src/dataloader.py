@@ -155,9 +155,9 @@ class TimeSeriesDataset:
         train_X, val_X, test_X = X[:train_len], X[train_len:train_len + val_len], X[train_len + val_len:]
         train_y, val_y, test_y = y[:train_len], y[train_len:train_len + val_len], y[train_len + val_len:]
 
-        train_X[:, :, 1] = self.logp_tensor(train_X[:, :, 1])
-        val_X[:, :, 1] = self.logp_tensor(val_X[:, :, 1])
-        test_X[:, :, 1] = self.logp_tensor(test_X[:, :, 1])
+        train_X[:, :, 2:] = self.logp_tensor(train_X[:, :, 2:])
+        val_X[:, :, 2:] = self.logp_tensor(val_X[:, :, 2:])
+        test_X[:, :, 2:] = self.logp_tensor(test_X[:, :, 2:])
 
         train_y = self.logp_tensor(train_y)
         val_y = self.logp_tensor(val_y)
