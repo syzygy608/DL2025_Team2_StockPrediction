@@ -200,6 +200,20 @@ def load_dataset(mode, data_dir="../dataset"):
         raise ValueError("Invalid mode. Choose from 'train', 'val', or 'test'.")
     return TensorDataset(X, y)
 
+def print_dataset(dataset, max_samples=10):
+    """Print the contents of the dataset, up to max_samples."""
+    print(f"Dataset size: {len(dataset)}")
+    print("Sample format: (inputs, targets)")
+    
+    for i, (inputs, targets) in enumerate(dataset):
+        if i >= max_samples:
+            print(f"... (showing only first {max_samples} samples)")
+            break
+        print(f"Sample {i}:")
+        print(f"  Inputs shape: {inputs.shape}, Inputs: {inputs}")
+        print(f"  Targets shape: {targets.shape}, Targets: {targets}")
+        print()
+
 # 3. 主函數：下載並構建 DataSet
 def main():
     # 下載數據
@@ -215,6 +229,8 @@ def main():
     train_dataset = load_dataset('train')
     val_dataset = load_dataset('val')
     test_dataset = load_dataset('test')
+    
+    print_dataset(train_dataset)
 
     print(f"Train dataset size: {len(train_dataset)}")
     print(f"Validation dataset size: {len(val_dataset)}")
