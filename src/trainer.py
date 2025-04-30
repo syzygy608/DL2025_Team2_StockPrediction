@@ -77,9 +77,7 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
             best_val_loss = val_loss_avg
             best_model = model.state_dict()
             print(f"Best model saved at epoch {epoch+1} with val loss: {best_val_loss:.4f}")
-            current_dir = os.path.dirname(__file__)
-            parrent_dir = os.path.join(current_dir, "../")
-            torch.save(best_model, os.path.join(parrent_dir, '/saved_model/best_model.pth'))
+            torch.save(best_model, '../model_weights/best_model.pth')
 
     writer.close()
     progress_bar.close()
