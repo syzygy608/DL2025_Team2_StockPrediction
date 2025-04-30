@@ -7,6 +7,7 @@ import argparse
 from torch.utils.data import DataLoader
 from evaluate import RMSLELoss, relative_error_accuracy
 import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -33,8 +34,10 @@ def main():
     losses = []
     acc = []
 
+    writer = SummaryWriter()
+
     progress_bar = tqdm.tqdm(total=len(test_loader), desc="Testing", unit="batch")
-    for inputs, targets in test_loader:
+    for batch_idx, (inputs, targets) in enumerate(test_loader):
         inputs = inputs.to(device)
         targets = targets.to(device)
 
@@ -46,11 +49,34 @@ def main():
         loss = criterion(outputs, targets)
         losses.append(loss.item())
         acc.append(relative_error_accuracy(outputs, targets).item())
+
+        # Log predictions and actual values to TensorBoard
+        if batch_idx < 10:  # Limit to first 10 batches to avoid clutter
+            # Assuming outputs and targets are sequences (e.g., shape: [batch_size, seq_len])
+            predictions = outputs[0].detach().cpu().numpy()  # First sample in batch
+            actuals = targets[0].detach().cpu().numpy()      # First sample in batch
+
+            # Log each time step as a scalar for trend plotting
+            for t in range(len(predictions)):
+                writer.add_scalars(f'Predictions/Batch_{batch_idx}', {
+                    'Actual': actuals[t],
+                    'Predicted': predictions[t]
+                }, t)
+
+        # Log loss and accuracy
+        writer.add_scalar('Test/RMSLE', loss.item(), batch_idx)
+        writer.add_scalar('Test/Accuracy', relative_error_accuracy(outputs, targets).item(), batch_idx)
+
         progress_bar.update(1)
     
-    print(f"Average RMSLE on test set: {np.mean(losses) :.4f}")
-    print(f"Average relative error accuracy on test set: {np.mean(acc) :.4f}")
-    progress_bar.close()
+    # Log average metrics
+    avg_loss = np.mean(losses)
+    avg_acc = np.mean(acc)
+    writer.add_scalar('Test/Average_RMSLE', avg_loss, 0)
+    writer.add_scalar('Test/Average_Accuracy', avg_acc, 0)
+
+    print(f"Average RMSLE on test set: {avg_loss:.4f}")
+    print(f"Average relative error accuracy on test set: {avg_acc:.4f}")
 
 if __name__ == "__main__":
     main()
