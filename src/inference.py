@@ -50,22 +50,9 @@ def main():
         losses.append(loss.item())
         acc.append(relative_error_accuracy(outputs, targets).item())
 
-        # Log predictions and actual values to TensorBoard
-        if batch_idx < 10:  # Limit to first 10 batches to avoid clutter
-            # Assuming outputs and targets are sequences (e.g., shape: [batch_size, seq_len])
-            predictions = outputs[0].detach().cpu().numpy()  # First sample in batch
-            actuals = targets[0].detach().cpu().numpy()      # First sample in batch
-
-            # Log each time step as a scalar for trend plotting
-            for t in range(len(predictions)):
-                writer.add_scalars(f'Predictions/Batch_{batch_idx}', {
-                    'Actual': actuals[t],
-                    'Predicted': predictions[t]
-                }, t)
-
         # Log loss and accuracy
-        writer.add_scalar('Test/RMSLE', loss.item(), batch_idx)
-        writer.add_scalar('Test/Accuracy', relative_error_accuracy(outputs, targets).item(), batch_idx)
+        writer.add_scalar('Test/True', targets, batch_idx)
+        writer.add_scalar('Test/Output', outputs, batch_idx)
 
         progress_bar.update(1)
     
