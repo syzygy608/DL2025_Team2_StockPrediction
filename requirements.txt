@@ -2,3 +2,5 @@ requests
 pandas
 torch
 tensorboard
+numpy
+tqdm

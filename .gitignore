@@ -7,3 +7,10 @@ __pycache__/
 # Environment
 .env
 .venv/
+
+dataset/*
+!dataset/.gitkeep
+!dataset/preprocessed_data.csv
+
+model_weight/*
+!model_weight/.gitkeep

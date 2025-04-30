@@ -1,19 +1,21 @@
 import os
 import requests
 import zipfile
+import tqdm
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader
-import tqdm
+from torch.utils.data import TensorDataset
 
 # 1. 自動下載數據集
-def download_stocknet_dataset(save_dir="../dataset"):
+def download_stocknet_dataset():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    save_dir = os.path.join(current_dir, "../dataset")
     url = "https://github.com/yumoxu/stocknet-dataset/archive/refs/heads/master.zip"  # StockNet GitHub 倉庫
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     
     zip_path = os.path.join(save_dir, "stocknet.zip")
-    if not os.path.exists(zip_path):
+    if not os.path.exists(zip_path) and not os.path.exists(os.path.join(save_dir, "extracted")):
         print("正在下載 StockNet dataset...")
         response = requests.get(url, stream=True)
         if response.status_code != 200:
@@ -21,9 +23,8 @@ def download_stocknet_dataset(save_dir="../dataset"):
         with open(zip_path, "wb") as f:
             # 使用 tqdm 進度條顯示下載進度
             total_size = int(response.headers.get('content-length', 0))
-            block_size = 1024  # 每次下載的塊大小
-            progress_bar = tqdm.tqdm(total=total_size, unit='iB', unit_scale=True)
-            for data in response.iter_content(block_size):
+            progress_bar = tqdm.tqdm(total=total_size)
+            for data in response.iter_content(chunk_size=1024):
                 f.write(data)
                 progress_bar.update(len(data))
             progress_bar.close()
@@ -39,66 +40,178 @@ def download_stocknet_dataset(save_dir="../dataset"):
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(extract_path)
         print("解壓完成！")
+
+    # 清除不必要的文件
+    if os.path.exists(zip_path):
+        os.remove(zip_path)
+        print("刪除壓縮文件完成！")
     
-    return os.path.join(extract_path, "stocknet-dataset-master")
-
-# 2. 自定義數據集類
-class StockNetDataset(Dataset):
-    def __init__(self, data_dir, window_size=5, transform=None):
-        """
-        Args:
-            data_dir (str): 資料文件夾路徑
-            window_size (int): 用於時間序列的窗口大小
-            transform (callable, optional): 數據轉換函數
-        """
-        self.data_dir = data_dir
-        self.window_size = window_size
-        self.transform = transform
+    if os.path.exists(os.path.join(extract_path, "stocknet-dataset-master")):
+        # 將 price/raw 內的資料移出來後刪除 stocknet-dataset-master
+        print("正在移動資料...")
+        for root, dirs, files in os.walk(os.path.join(extract_path, "stocknet-dataset-master")):
+            for file in files:
+                if file.endswith(".csv"):
+                    src = os.path.join(root, file)
+                    dst = os.path.join(save_dir, file)
+                    if not os.path.exists(dst):
+                        os.rename(src, dst)
+                    else:
+                        print(f"文件 {dst} 已存在，跳過移動。")
         
-        # read all csv files in the directory
-        self.features = []
-        for filename in os.listdir(data_dir):
-            if filename.endswith(".csv"):
-                file_path = os.path.join(data_dir, filename)
-                df = pd.read_csv(file_path, usecols=[1])
-                # 只保留數據列
-                self.features.append(df.values.flatten())
+        # 刪除目錄 ( 不管有沒有資料 )
+        for root, dirs, files in os.walk(extract_path, topdown=False):
+            for name in dirs:
+                os.rmdir(os.path.join(root, name))
+            for name in files:
+                os.remove(os.path.join(root, name))
         
-        self.features = torch.tensor(self.features, dtype=torch.float32)
-        # 將所有數據拼接在一起
-        self.features = self.features.view(-1).numpy()
+        # 刪除 stocknet-dataset-master 目錄
+        os.rmdir(extract_path)
+        print("刪除 stocknet-dataset-master 目錄完成！")
+    
+    return save_dir
 
-        print(f"數據集大小: {len(self.features)}")
-      
+def preprocess_data(data_dir):
+    # 數據預處理邏輯
+    # 將所有 csv 檔案合併成一個 DataFrame，新增欄位 company_id，以第幾個檔案為 id
+    all_data = []
+    idx = 1
+    for i, file in enumerate(os.listdir(data_dir)):
+        if file.endswith(".csv"):
+            file_path = os.path.join(data_dir, file)
+            df = pd.read_csv(file_path)
+            df["Company_id"] = idx  # 新增欄位 company_id
+            all_data.append(df)
+            idx += 1
+    
+    combined_data = pd.concat(all_data, ignore_index=True)
+    combined_data = combined_data.dropna()  # 去除缺失值
+    combined_data = combined_data.reset_index(drop=True)  # 重設索引
+    
+    # 將 Company_id 放到最前面
+    cols = list(combined_data.columns)
+    cols.insert(0, cols.pop(cols.index("Company_id")))
+    combined_data = combined_data[cols]
+
+    # 儲存預處理後的數據
+    preprocessed_path = os.path.join(data_dir, "preprocessed_data.csv")
+    combined_data.to_csv(preprocessed_path, index=False)
+    print(f"預處理後的數據已儲存至 {preprocessed_path}")
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class TimeSeriesDataset:
+    def __init__(self, data, look_back=7):
+        self.data = self.load_data(data)
+        self.look_back = look_back
+        self.train_data = None
+        self.val_data = None
+        self.test_data = None
+
+    def logp_tensor(self, tensor):
+        # 複製輸入張量，避免修改原始數據
+        logp_tensor = tensor.clone()
+        # 對張量進行對數變換
+        logp_tensor = torch.log1p(logp_tensor)
+        return logp_tensor
+
+    def create_dataset(self):
+        input_cols = ['Company_id' , 'Date' , 'Open', 'High', 'Low', 'Adj Close', 'Volume']
+        output_cols = ['Close']
+
+        tensors = []
+        targets = []
+
+        for id in self.data['Company_id'].unique():
+            group = self.data[self.data['Company_id'] == id].sort_values(['Date'])
+
+            if len(group) < self.look_back:
+                print(f"Skipping {id}: only {len(group)} rows, need at least {self.look_back}")
+                continue
+        
+            inputs = group[input_cols].values
+            outputs = group[output_cols].values
+            
+            inputs_tensor = torch.tensor(inputs, dtype=torch.float32).to(device)
+            outputs_tensor = torch.tensor(outputs, dtype=torch.float32).to(device)
+
+            for i in range(len(inputs_tensor) - self.look_back):
+                x = inputs_tensor[i:i + self.look_back]
+                y = outputs_tensor[i + self.look_back - 1]
+                tensors.append(x)
+                targets.append(y)
+            
+        tensors = torch.stack(tensors)
+        targets = torch.stack(targets)
+        return tensors, targets
+
+    def split_data(self, train_size=0.8, val_size=0.1):
+        X, y = self.create_dataset()
+        total_len = len(X)
+        train_len = int(total_len * train_size)
+        val_len = int(total_len * val_size)
+
+        train_X, val_X, test_X = X[:train_len], X[train_len:train_len + val_len], X[train_len + val_len:]
+        train_y, val_y, test_y = y[:train_len], y[train_len:train_len + val_len], y[train_len + val_len:]
+
+        train_X[:, :, 1] = self.logp_tensor(train_X[:, :, 1])
+        val_X[:, :, 1] = self.logp_tensor(val_X[:, :, 1])
+        test_X[:, :, 1] = self.logp_tensor(test_X[:, :, 1])
+
+        train_y = self.logp_tensor(train_y)
+        val_y = self.logp_tensor(val_y)
+        test_y = self.logp_tensor(test_y)
+
+        self.train_data = (train_X, train_y)
+        self.val_data = (val_X, val_y)
+        self.test_data = (test_X, test_y)
+    
+    def __getitem__(self, index):
+        return self.data.iloc[index]
+    
     def __len__(self):
-        return len(self.features) - self.window_size + 1
-    
-    def __getitem__(self, idx):
-        # 獲取時間窗口數據
-        window_data = self.features[idx:idx + self.window_size]
-        
-        # 轉換為 PyTorch 張量
-        window_data = torch.tensor(window_data, dtype=torch.float32)
-        
-        if self.transform:
-            window_data = self.transform(window_data)
-        
-        return window_data
+        return len(self.data)
 
-# 3. 主函數：下載並構建 DataLoader
+def load_dataset(mode, data_dir="../dataset"):
+    """
+    Load the dataset based on the mode (train, val, test).
+    """
+    path = os.path.dirname(__file__)
+    path = os.path.join(path, data_dir)
+    data = pd.read_csv(os.path.join(path, 'processed_data.csv'))
+    dataset = TimeSeriesDataset(data=data, look_back=7)
+    dataset.split_data(train_size=0.8, val_size=0.1)
+    
+    if mode == 'train':
+        X, y = dataset.train_data
+    elif mode == 'val':
+        X, y = dataset.val_data
+    elif mode == 'test':
+        X, y = dataset.test_data
+    else:
+        raise ValueError("Invalid mode. Choose from 'train', 'val', or 'test'.")
+    return TensorDataset(X, y)
+
+# 3. 主函數：下載並構建 DataSet
 def main():
     # 下載數據
-    data_dir = download_stocknet_dataset()
-    
-    # 初始化數據集
-    dataset = StockNetDataset(data_dir=data_dir, window_size=5)
-    
-    # 創建 DataLoader
-    batch_size = 32
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=True)
-    
-    for batch_features, batch_targets in dataloader:
-        print(f"Batch Features Shape: {batch_features.shape}")  # [batch_size, window_size, num_features]
+    if os.path.exists(os.path.join("../dataset", "preprocessed_data.csv")):
+        print("數據已存在，跳過下載。")
+    else:
+        data_dir = download_stocknet_dataset()
+        # 數據預處理
+        preprocess_data(data_dir)
+    print("數據下載和預處理完成！")
+
+        # Load and preprocess data
+    train_dataset = load_dataset('train')
+    val_dataset = load_dataset('val')
+    test_dataset = load_dataset('test')
+
+    print(f"Train dataset size: {len(train_dataset)}")
+    print(f"Validation dataset size: {len(val_dataset)}")
+    print(f"Test dataset size: {len(test_dataset)}")
 
 if __name__ == "__main__":
     main()
