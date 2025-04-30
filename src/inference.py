@@ -5,7 +5,7 @@ import torch.nn as nn
 import numpy as np
 import argparse
 from torch.utils.data import DataLoader
-from evaluatealuate import RMSLELoss, relative_error_accuracy
+from evaluate import RMSLELoss, relative_error_accuracy
 import tqdm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
