@@ -59,8 +59,6 @@ def main():
     # Log average metrics
     avg_loss = np.mean(losses)
     avg_acc = np.mean(acc)
-    writer.add_scalar('Test/Average_RMSLE', avg_loss, 0)
-    writer.add_scalar('Test/Average_Accuracy', avg_acc, 0)
 
     print(f"Average RMSLE on test set: {avg_loss:.4f}")
     print(f"Average relative error accuracy on test set: {avg_acc:.4f}")
