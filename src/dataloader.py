@@ -166,10 +166,6 @@ class TimeSeriesDataset:
         val_X[:, :, 4:] = self.logp_tensor(val_X[:, :, 4:])
         test_X[:, :, 4:] = self.logp_tensor(test_X[:, :, 4:])
 
-        train_y = self.logp_tensor(train_y)
-        val_y = self.logp_tensor(val_y)
-        test_y = self.logp_tensor(test_y)
-
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)
         self.test_data = (test_X, test_y)
