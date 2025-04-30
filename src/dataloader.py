@@ -103,7 +103,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class TimeSeriesDataset:
     def __init__(self, data, look_back=7):
-        self.data = self.load_data(data)
+        self.data = data
         self.look_back = look_back
         self.train_data = None
         self.val_data = None
