@@ -126,7 +126,6 @@ class TimeSeriesDataset:
         range_val = max_val - min_val
         range_val = torch.where(range_val == 0, torch.tensor(1.0, device=range_val.device), range_val)
         normalized_tensor = (copy_tensor - min_val) / range_val
-        print(f"Min-Max Normalized tensor - Min: {normalized_tensor.min().item():.4f}, Max: {normalized_tensor.max().item():.4f}")
         return normalized_tensor
 
     def create_dataset(self):
