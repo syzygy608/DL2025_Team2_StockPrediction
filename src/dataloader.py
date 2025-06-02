@@ -116,12 +116,18 @@ class TimeSeriesDataset:
         self.val_data = None
         self.test_data = None
 
-    def logp_tensor(self, tensor):
+    def min_max_normalization_tensor(self, tensor):
         # 複製輸入張量，避免修改原始數據
-        logp_tensor = tensor.clone()
-        # 對張量進行對數變換
-        logp_tensor = torch.log1p(logp_tensor)
-        return logp_tensor
+        copy_tensor = tensor.clone()
+        # 對張量進行 Min-Max 標準化
+        min_val = copy_tensor.min(dim=0, keepdim=True).values
+        max_val = copy_tensor.max(dim=0, keepdim=True).values
+        # 避免除以零
+        range_val = max_val - min_val
+        range_val = torch.where(range_val == 0, torch.tensor(1.0, device=range_val.device), range_val)
+        normalized_tensor = (copy_tensor - min_val) / range_val
+        print(f"Min-Max Normalized tensor - Min: {normalized_tensor.min().item():.4f}, Max: {normalized_tensor.max().item():.4f}")
+        return normalized_tensor
 
     def create_dataset(self):
         input_cols = ['Company_id', 'Year', 'Month', 'Day', 'Open', 'High', 'Low', 'Volume']
@@ -153,20 +159,6 @@ class TimeSeriesDataset:
         targets = torch.stack(targets)
         return tensors, targets
 
-    def standardize_tensor(self, tensor, reference_tensor=None):
-        if reference_tensor is not None:
-            mean = reference_tensor.mean(dim=(0, 1), keepdim=True)
-            std = reference_tensor.std(dim=(0, 1), keepdim=True)
-        else:
-            mean = tensor.mean(dim=(0, 1), keepdim=True)
-            std = tensor.std(dim=(0, 1), keepdim=True)
-        
-        std = torch.where(std == 0, torch.tensor(1.0, device=std.device), std)
-        normalized_tensor = (tensor - mean) / std
-        
-        print(f"Standardized tensor - Mean: {normalized_tensor.mean().item():.4f}, Std: {normalized_tensor.std().item():.4f}")
-        return normalized_tensor, mean, std
-
     def split_data(self, train_size=0.8, val_size=0.1):
         X, y = self.create_dataset()
         total_len = len(X)
@@ -176,9 +168,9 @@ class TimeSeriesDataset:
         train_X, val_X, test_X = X[:train_len], X[train_len:train_len + val_len], X[train_len + val_len:]
         train_y, val_y, test_y = y[:train_len], y[train_len:train_len + val_len], y[train_len + val_len:]
 
-        train_X[:, :, 4:] = self.logp_tensor(train_X[:, :, 4:])
-        val_X[:, :, 4:] = self.logp_tensor(val_X[:, :, 4:])
-        test_X[:, :, 4:] = self.logp_tensor(test_X[:, :, 4:])
+        train_X[:, :, 4:] = self.min_max_normalization_tensor(train_X[:, :, 4:])
+        val_X[:, :, 4:] = self.min_max_normalization_tensor(val_X[:, :, 4:])
+        test_X[:, :, 4:] = self.min_max_normalization_tensor(test_X[:, :, 4:])
 
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)
@@ -220,8 +212,8 @@ def print_dataset(dataset, max_samples=10):
             print(f"... (showing only first {max_samples} samples)")
             break
         print(f"Sample {i}:")
-        print(f"  Inputs shape: {inputs.shape}, Inputs: {inputs}")
-        print(f"  Targets shape: {targets.shape}, Targets: {targets}")
+        print(f"Inputs shape: {inputs.shape}, Inputs: {inputs}")
+        print(f"Targets shape: {targets.shape}, Targets: {targets}")
         print()
 
 # 3. 主函數：下載並構建 DataSet

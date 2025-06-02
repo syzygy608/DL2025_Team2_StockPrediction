@@ -1,13 +1,13 @@
 from model.model import GRUPredictor
 from dataloader import load_dataset
 import torch
+import torch.nn as nn
 import torch.optim as optim
 import argparse
 from torch.utils.data import DataLoader
 import tqdm
 from torch.utils.tensorboard import SummaryWriter
-from evaluate import RMSLELoss, relative_error_accuracy
-import os
+from evaluate import RMSELoss
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -21,8 +21,8 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
 
     # Initialize model, loss function and optimizer
     model = GRUPredictor().to(device)
-    # loss: rmsle
-    criterion = RMSLELoss()
+    # loss: HubertLoss
+    criterion = nn.HubertLoss(delta=1.0)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # Tensorboard
@@ -46,7 +46,7 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-            acc += relative_error_accuracy(outputs, targets).item()
+            acc += RMSELoss()(outputs, targets).item()
             progress_bar.update(1)
 
         # Validation
@@ -59,7 +59,7 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
                 val_loss += loss.item()
-                val_acc += relative_error_accuracy(outputs, targets).item()
+                val_acc += RMSELoss()(outputs, targets).item()
 
         # Print statistics
         train_loss_avg = running_loss / len(train_loader)
@@ -68,7 +68,7 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
         val_acc_avg = val_acc / len(val_loader)
 
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {train_loss_avg:.4f}, Val Loss: {val_loss_avg:.4f}")
-        print(f"Train Accuracy: {train_acc_avg:.4f}, Val Accuracy: {val_acc_avg:.4f}")
+        print(f"Train RMSE: {train_acc_avg:.4f}, Val RMSE: {val_acc_avg:.4f}")
         # Log to Tensorboard
         writer.add_scalar('Loss/train', train_loss_avg, epoch)
         writer.add_scalar('Loss/val', val_loss_avg, epoch)
