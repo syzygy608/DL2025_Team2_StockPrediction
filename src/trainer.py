@@ -29,7 +29,7 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
     # Initialize model, loss function and optimizer
     model = GRUPredictor().to(device)
     # loss: HubertLoss
-    criterion = nn.HubertLoss(delta=1.0)
+    criterion = nn.HuberLoss(delta=1.0)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # Tensorboard
