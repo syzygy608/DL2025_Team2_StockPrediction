@@ -25,7 +25,6 @@ def load_model(model_path):
 
 def main():
     parser = argparse.ArgumentParser(description='Test the GRU model')
-    parser.add_argument('--model_path', type=str, default="../model_weights/best_model.pth", help='Path to the trained model')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for testing')
     args = parser.parse_args()
 
@@ -34,7 +33,8 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
     # Load the model
-    model = load_model(args.model_path)
+    model = load_model(os.path.join(os.path.dirname(__file__), '../saved_model/best_model.pth'))
+    model.to(device)
 
     losses = []
     acc = []
