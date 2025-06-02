@@ -1,5 +1,12 @@
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from model.model import GRUPredictor
 from dataloader import load_dataset
+from evaluate import RMSELoss
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,7 +14,7 @@ import argparse
 from torch.utils.data import DataLoader
 import tqdm
 from torch.utils.tensorboard import SummaryWriter
-from evaluate import RMSELoss
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

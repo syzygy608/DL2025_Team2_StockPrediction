@@ -1,12 +1,18 @@
-from model.model import GRUPredictor
-from dataloader import load_dataset
+import os
+import sys
 import torch
+import torch.nn as nn
 import numpy as np
 import argparse
 from torch.utils.data import DataLoader
-from evaluate import RMSLELoss, relative_error_accuracy
 import tqdm
 from torch.utils.tensorboard import SummaryWriter
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from model.model import GRUPredictor
+from dataloader import load_dataset
+from evaluate import RMSELoss
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -35,6 +41,8 @@ def main():
 
     writer = SummaryWriter()
 
+    criterion = nn.HuberLoss(delta=1.0)
+
     progress_bar = tqdm.tqdm(total=len(test_loader), desc="Testing", unit="batch")
     for batch_idx, (inputs, targets) in enumerate(test_loader):
         inputs = inputs.to(device)
@@ -43,16 +51,12 @@ def main():
         # Get the model predictions
         outputs = model(inputs)
 
-        # Calculate RMSLE
-        criterion = RMSLELoss()
         loss = criterion(outputs, targets)
         losses.append(loss.item())
-        acc.append(relative_error_accuracy(outputs, targets).item())
+        acc.append(RMSELoss()(outputs, targets).item())
 
-        # Log loss and accuracy
         writer.add_scalar('Test/True', targets, batch_idx)
         writer.add_scalar('Test/Output', outputs, batch_idx)
-        writer.add_scalar('Test/ACC', relative_error_accuracy(outputs, targets).item(), batch_idx)
 
         progress_bar.update(1)
     
@@ -60,8 +64,10 @@ def main():
     avg_loss = np.mean(losses)
     avg_acc = np.mean(acc)
 
-    print(f"Average RMSLE on test set: {avg_loss:.4f}")
-    print(f"Average relative error accuracy on test set: {avg_acc:.4f}")
+    print(f"Average Hubert Loss on test set: {avg_loss:.4f}")
+    print(f"Average RMSE on test set: {avg_acc:.4f}")
+    progress_bar.close()
+    writer.close()
 
 if __name__ == "__main__":
     main()
