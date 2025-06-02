@@ -52,10 +52,11 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
-            running_loss += loss.item()
-            acc += RMSELoss()(outputs, targets).item()
-            progress_bar.update(1)
+            running_loss += loss.item() * inputs.size(0)
+            acc += RMSELoss()(outputs, targets).item() * inputs.size(0)
 
+            progress_bar.update(1)
+        progress_bar.close()
         # Validation
         model.eval()
         val_loss = 0.0
@@ -65,8 +66,8 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
                 inputs, targets = inputs.to(device), targets.to(device)
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
-                val_loss += loss.item()
-                val_acc += RMSELoss()(outputs, targets).item()
+                val_loss += loss.item() * inputs.size(0)
+                val_acc += RMSELoss()(outputs, targets).item() * inputs.size(0)
 
         # Print statistics
         train_loss_avg = running_loss / len(train_loader)
@@ -86,8 +87,10 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
             print(f"Best model saved at epoch {epoch+1} with val loss: {best_val_loss:.4f}")
             torch.save(best_model, os.path.join("model_weights", "best_model.pth"))
 
+        
+
     writer.close()
-    progress_bar.close()
+    
 
 # 設定 hyperparameters : batch_size, num_epochs, learning_rate
 
