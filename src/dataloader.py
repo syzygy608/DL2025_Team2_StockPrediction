@@ -135,10 +135,6 @@ class TimeSeriesDataset:
         self.val_data = (val_X, val_y)
         self.test_data = (test_X, test_y)
 
-        print(f"Train companies: {len(train_companies)}")
-        print(f"Val companies: {len(val_companies)}")
-        print(f"Test companies: {len(test_companies)}")
-
     def __getitem__(self, index):
         return self.data.iloc[index]
     
@@ -256,4 +252,12 @@ def load_dataset(mode, data_dir="../dataset"):
         X, y = dataset.test_data
     else:
         raise ValueError("Invalid mode. Choose from 'train', 'val', or 'test'.")
+    
+    # 印前幾個樣本的內容
+    print(f"Loaded {mode} dataset with {len(X)} samples.")
+    print(f"Sample X shape: {X.shape}, Sample y shape: {y.shape}")
+    print(f"Sample X: {X[:2]}")
+    print(f"Sample y: {y[:2]}")
+    
+    # 返回 TensorDataset
     return TensorDataset(X, y)
