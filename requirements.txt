@@ -4,4 +4,4 @@ torch
 tensorboard
 numpy
 tqdm
-sklearn
+scikit-learn
