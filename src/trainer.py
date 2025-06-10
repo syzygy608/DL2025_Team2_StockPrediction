@@ -11,7 +11,7 @@ import tqdm
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from model.model import CNNLSTMPredictor
-from dataloader import TimeSeriesDataset
+from dataloader import load_dataset
 from evaluate import compute_accuracy
 
 
