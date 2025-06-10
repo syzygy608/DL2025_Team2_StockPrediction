@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 from torch.utils.data import TensorDataset
 import torch.nn as nn
+import numpy as np
 
 embedding_dim = 10  # 嵌入維度
 
@@ -157,7 +158,8 @@ class TimeSeriesDataset:
                     else:
                         outputs.append(0)
                         
-            company_embeds = torch.tensor(group['Company Embedding'].values.tolist(), dtype=torch.float32).to(device)  # 嵌入向量
+            company_embeds_np = np.array(group['Company Embedding'].tolist())  # Shape: [n, 10]
+            company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(device)
             other_features = torch.tensor(group[['Date', 'Open', 'Close', 'Adj Close', 'High', 'Low', 'Volume']].values, 
                              dtype=torch.float32).to(device)
             # 合併嵌入向量和其他特徵
