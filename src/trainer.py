@@ -10,7 +10,7 @@ import tqdm
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from model.model import CNNLSTMPredictor
+from model.model import Predictor
 from dataloader import load_dataset
 from evaluate import compute_accuracy
 
@@ -72,7 +72,7 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     # Initialize model
-    model = CNNLSTMPredictor(input_dim=31, conv_filters=128, lstm_hidden_dim=256, num_layers=2).to(device)
+    model = Predictor().to(device)
     
     # Compute pos_weight for class imbalance
     train_labels = train_dataset.tensors[1]
