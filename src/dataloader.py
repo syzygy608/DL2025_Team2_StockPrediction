@@ -47,8 +47,8 @@ class TimeSeriesDataset:
         company_embeds_np = np.array(group['Company Embedding'].tolist())  # Shape: [n, 10]
         company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
         other_features = torch.tensor(group[['Date', 'Open', 'Close', 'Adj Close', 'High', 'Low', 'Volume', 'SMA5', 'EMA20']].values, 
-                                     dtype=torch.float32).to(self.device)  # Shape: [n, 7]
-        inputs_tensor = torch.cat((company_embeds, other_features), dim=1)  # Shape: [n, 17]
+                                     dtype=torch.float32).to(self.device)  # Shape: [n, 9]
+        inputs_tensor = torch.cat((company_embeds, other_features), dim=1)  # Shape: [n, 19]
 
         # Generate labels
         outputs = []
@@ -64,7 +64,7 @@ class TimeSeriesDataset:
         tensors = []
         targets = []
         for i in range(len(inputs_tensor) - self.look_back):
-            x = inputs_tensor[i:i + self.look_back]  # Shape: [look_back, 17]
+            x = inputs_tensor[i:i + self.look_back]  # Shape: [look_back, 19]
             y = outputs_tensor[i + self.look_back - 1]  # Shape: []
             tensors.append(x)
             targets.append(y)
