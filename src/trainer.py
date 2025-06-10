@@ -109,9 +109,9 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
 
 def get_args():
     parser = argparse.ArgumentParser(description='GRU Predictor Training')
-    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training')
+    parser.add_argument('--batch_size', type=int, default=128, help='Batch size for training')
     parser.add_argument('--num_epochs', type=int, default=200, help='Number of epochs for training')
-    parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate for optimizer')
+    parser.add_argument('--learning_rate', type=float, default=1e-5, help='Learning rate for optimizer')
     parser.add_argument('--weight_decay', type=float, default=1e-5, help='Weight decay for optimizer')
     return parser.parse_args()
 
