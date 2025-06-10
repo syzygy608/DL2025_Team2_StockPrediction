@@ -40,7 +40,7 @@ class TimeSeriesDataset:
         group['SMA5'] = group['Adj Close'].rolling(window=5).mean()
         group['EMA20'] = group['Adj Close'].ewm(span=20, adjust=False).mean()
 
-        group = group.fillna(method='bfill').fillna(method='ffill')  # 填充缺失值
+        group = group.ffill().bifill()  # 前向填充和後向填充缺失值
         # 確保數據按日期排序
         group = group.sort_values('Date').reset_index(drop=True)
         # Prepare input features
