@@ -256,8 +256,6 @@ def load_dataset(mode, data_dir="../dataset"):
     # 印前幾個樣本的內容
     print(f"Loaded {mode} dataset with {len(X)} samples.")
     print(f"Sample X shape: {X.shape}, Sample y shape: {y.shape}")
-    print(f"Sample X: {X[:2]}")
-    print(f"Sample y: {y[:2]}")
-    
+
     # 返回 TensorDataset
     return TensorDataset(X, y)
