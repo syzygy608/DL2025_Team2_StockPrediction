@@ -205,8 +205,14 @@ def load_dataset(mode, data_dir="../dataset"):
     """
     path = os.path.dirname(__file__)
     path = os.path.join(path, data_dir)
-    data = pd.read_csv(os.path.join(path, 'preprocessed_data.csv'))
-    dataset = TimeSeriesDataset(data=data, look_back=20)
+    
+    if not os.path.exists(os.path.join(path, "preprocessed_data.csv")):
+        data_dir = download_stocknet_dataset()
+        preprocess_data(data_dir)
+    
+    data = pd.read_csv(os.path.join(path, "preprocessed_data.csv"))
+    dataset = TimeSeriesDataset(data, look_back=20)
+    # 分割數據集
     dataset.split_data(train_size=0.7, val_size=0.1)
     
     if mode == 'train':
