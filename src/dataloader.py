@@ -5,6 +5,9 @@ import tqdm
 import pandas as pd
 import torch
 from torch.utils.data import TensorDataset
+import torch.nn as nn
+
+embedding_dim = 10  # 嵌入維度
 
 # 1. 自動下載數據集
 def download_stocknet_dataset():
@@ -74,32 +77,20 @@ def download_stocknet_dataset():
 
 def preprocess_data(data_dir):
     # 數據預處理邏輯
-    # 將所有 csv 檔案合併成一個 DataFrame，新增欄位 company_id，以第幾個檔案為 id
+    # 將所有 csv 檔案合併成一個 DataFrame，新增欄位 "Company Name" 來標識公司名稱
     all_data = []
-    idx = 1
-    for i, file in enumerate(os.listdir(data_dir)):
+    for file in os.listdir(data_dir):
         if file.endswith(".csv"):
             file_path = os.path.join(data_dir, file)
             df = pd.read_csv(file_path)
-            df["Company_id"] = idx  # 新增欄位 company_id
+            df["Company Name"] = file.split(".")[0]  # 使用檔名作為公司名稱
             all_data.append(df)
-            idx += 1
     
     combined_data = pd.concat(all_data, ignore_index=True)
     combined_data = combined_data.dropna()  # 去除缺失值
     combined_data = combined_data.reset_index(drop=True)  # 重設索引
 
-    # 將 Date 切分成 年、月、日三個欄位
     combined_data["Date"] = pd.to_datetime(combined_data["Date"])
-    combined_data["Year"] = combined_data["Date"].dt.year
-    combined_data["Month"] = combined_data["Date"].dt.month
-    combined_data["Day"] = combined_data["Date"].dt.day
-    combined_data = combined_data.drop(columns=["Date"])  # 刪除原始的 Date 欄位
-    
-    # 將 Company_id 放到最前面
-    cols = list(combined_data.columns)
-    cols.insert(0, cols.pop(cols.index("Company_id")))
-    combined_data = combined_data[cols]
 
     # 儲存預處理後的數據
     preprocessed_path = os.path.join(data_dir, "preprocessed_data.csv")
@@ -109,7 +100,7 @@ def preprocess_data(data_dir):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class TimeSeriesDataset:
-    def __init__(self, data, look_back=7):
+    def __init__(self, data, look_back=20):
         self.data = data
         self.look_back = look_back
         self.train_data = None
@@ -129,24 +120,51 @@ class TimeSeriesDataset:
         return normalized_tensor
 
     def create_dataset(self):
-        input_cols = ['Company_id', 'Year', 'Month', 'Day', 'Open', 'High', 'Low', 'Volume']
-        output_cols = ['Close']
+        input_cols = ['Company Embedding', 'Date', 'Open', 'Close', 'Adj Close', 'High', 'Low', 'Volume']
 
         tensors = []
         targets = []
 
-        for id in self.data['Company_id'].unique():
-            group = self.data[self.data['Company_id'] == id].sort_values(['Year', 'Month', 'Day'])
+        vocab = {name: idx for idx, name in enumerate(self.data['Company Name'].unique())}
+        vocab_size = len(vocab)
+
+
+        company_indices = [vocab[name] for name in self.data['Company Name'].values]
+        company_indices_tensor = torch.tensor(company_indices, dtype=torch.long)
+        embedding_layer = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim).to(device)
+        self.data['Company Embedding'] = embedding_layer(company_indices_tensor).cpu().detach().numpy()  # 將嵌入向量添加到 DataFrame 中
+
+        for name in self.data['Company Name'].unique():
+            group = self.data[self.data['Company Name'] == name].sort_values(['Date'])
 
             if len(group) < self.look_back:
-                print(f"Skipping {id}: only {len(group)} rows, need at least {self.look_back}")
+                print(f"Skipping {name}: only {len(group)} rows, need at least {self.look_back}")
                 continue
         
             inputs = group[input_cols].values
-            outputs = group[output_cols].values
-            
-            inputs_tensor = torch.tensor(inputs, dtype=torch.float32).to(device)
-            outputs_tensor = torch.tensor(outputs, dtype=torch.float32).to(device)
+
+            # 將日期轉換為時間 index，最小的時間戳為 0
+            group['Date'] = pd.to_datetime(group['Date'])
+            group['Date'] = (group['Date'] - group['Date'].min()).dt.total_seconds() / (24 * 3600)  # 轉換為天數
+            inputs[:, 1] = group['Date'].values  # 更新 inputs 中的日期欄位
+
+            outputs = []
+            for i in range(len(group)):
+                if i == 0:
+                    outputs.append(0)  # 第一天無前一天數據，標籤設為 0
+                else:
+                    if group['Adj Close'].iloc[i] > group['Adj Close'].iloc[i - 1]:
+                        outputs.append(1)
+                    else:
+                        outputs.append(0)
+                        
+            company_embeds = torch.tensor(group['Company Name'].values.tolist(), dtype=torch.float32).to(device)  # 嵌入向量
+            other_features = torch.tensor(group[['Date', 'Open', 'Close', 'Adj Close', 'High', 'Low', 'Volume']].values, 
+                             dtype=torch.float32).to(device)
+            # 合併嵌入向量和其他特徵
+            inputs_tensor = torch.cat((company_embeds, other_features), dim=1)  # 形狀: [n, embedding_dim + 7]
+            outputs_tensor = torch.tensor(outputs, dtype=torch.float32).to(device)  # 形狀: [n]
+
 
             for i in range(len(inputs_tensor) - self.look_back):
                 x = inputs_tensor[i:i + self.look_back]
@@ -158,7 +176,7 @@ class TimeSeriesDataset:
         targets = torch.stack(targets)
         return tensors, targets
 
-    def split_data(self, train_size=0.8, val_size=0.1):
+    def split_data(self, train_size=0.7, val_size=0.1):
         X, y = self.create_dataset()
         total_len = len(X)
         train_len = int(total_len * train_size)
@@ -167,9 +185,9 @@ class TimeSeriesDataset:
         train_X, val_X, test_X = X[:train_len], X[train_len:train_len + val_len], X[train_len + val_len:]
         train_y, val_y, test_y = y[:train_len], y[train_len:train_len + val_len], y[train_len + val_len:]
 
-        train_X[:, :, 4:] = self.min_max_normalization_tensor(train_X[:, :, 4:])
-        val_X[:, :, 4:] = self.min_max_normalization_tensor(val_X[:, :, 4:])
-        test_X[:, :, 4:] = self.min_max_normalization_tensor(test_X[:, :, 4:])
+        train_X[:, :, embedding_dim + 1:] = self.min_max_normalization_tensor(train_X[:, :, embedding_dim + 1:])
+        val_X[:, :, embedding_dim + 1:] = self.min_max_normalization_tensor(val_X[:, :, embedding_dim + 1:])
+        test_X[:, :, embedding_dim + 1:] = self.min_max_normalization_tensor(test_X[:, :, embedding_dim + 1:])
 
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)
@@ -188,8 +206,8 @@ def load_dataset(mode, data_dir="../dataset"):
     path = os.path.dirname(__file__)
     path = os.path.join(path, data_dir)
     data = pd.read_csv(os.path.join(path, 'preprocessed_data.csv'))
-    dataset = TimeSeriesDataset(data=data, look_back=7)
-    dataset.split_data(train_size=0.8, val_size=0.1)
+    dataset = TimeSeriesDataset(data=data, look_back=20)
+    dataset.split_data(train_size=0.7, val_size=0.1)
     
     if mode == 'train':
         X, y = dataset.train_data

@@ -1,109 +1,125 @@
 import os
 import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from model.model import GRUPredictor
-from dataloader import load_dataset
-from evaluate import RMSELoss
-
+import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import argparse
 from torch.utils.data import DataLoader
-import tqdm
 from torch.utils.tensorboard import SummaryWriter
+import tqdm
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from model.model import CNNLSTMPredictor
+from dataloader import load_dataset
+from evaluate import compute_accuracy
 
 
+# 設置設備
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+def train_epoch(model, train_loader, criterion, optimizer):
+    """單個 epoch 的訓練邏輯"""
+    model.train()
+    running_loss = 0.0
+    running_acc = 0.0
+    total_samples = 0
+
+    progress_bar = tqdm.tqdm(train_loader, desc="Training", unit="batch")
+    for inputs, targets in progress_bar:
+        inputs, targets = inputs.to(device), targets.to(device).float()
+        optimizer.zero_grad()
+        outputs = model(inputs).squeeze()  # 確保輸出形狀為 [batch_size]
+        loss = criterion(outputs, targets)
+        loss.backward()
+        optimizer.step()
+
+        batch_size = inputs.size(0)
+        running_loss += loss.item() * batch_size
+        running_acc += compute_accuracy(outputs, targets) * batch_size
+        total_samples += batch_size
+        progress_bar.set_postfix({"loss": f"{loss.item():.4f}"})
+
+    return running_loss / total_samples, running_acc / total_samples
+
+def validate_epoch(model, val_loader, criterion):
+    """單個 epoch 的驗證邏輯"""
+    model.eval()
+    running_loss = 0.0
+    running_acc = 0.0
+    total_samples = 0
+
+    with torch.no_grad():
+        for inputs, targets in val_loader:
+            inputs, targets = inputs.to(device), targets.to(device).float()
+            outputs = model(inputs).squeeze()
+            loss = criterion(outputs, targets)
+
+            batch_size = inputs.size(0)
+            running_loss += loss.item() * batch_size
+            running_acc += compute_accuracy(outputs, targets) * batch_size
+            total_samples += batch_size
+
+    return running_loss / total_samples, running_acc / total_samples
+
 def train_model(batch_size, num_epochs, learning_rate, weight_decay):
-    # get data
+    # 創建模型保存目錄
+    os.makedirs("model_weights", exist_ok=True)
+
+    # 載入數據
     train_dataset = load_dataset('train')
     val_dataset = load_dataset('val')
-    # DataLoader
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    # Initialize model, loss function and optimizer
-    model = GRUPredictor().to(device)
-    # loss: HubertLoss
-    criterion = nn.HuberLoss(delta=1.0)
+    # 初始化模型、損失函數和優化器
+    model = CNNLSTMPredictor().to(device)
+    criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
-    # Tensorboard
+    # 初始化 TensorBoard
     writer = SummaryWriter()
-    
-    # best model
-    best_model = None
+
+    # 最佳模型跟踪
     best_val_loss = float('inf')
+    best_model_path = os.path.join("model_weights", "best_model.pth")
 
-    # Training loop
+    # 訓練迴圈
     for epoch in range(num_epochs):
-        model.train()
-        running_loss = 0.0
-        acc = 0.0
-        progress_bar = tqdm.tqdm(total=len(train_loader), desc=f"Epoch {epoch+1}/{num_epochs}", unit="batch")
-        for i, (inputs, targets) in enumerate(train_loader):
-            inputs, targets = inputs.to(device), targets.to(device)
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item() * inputs.size(0)
-            acc += RMSELoss()(outputs, targets).item() * inputs.size(0)
+        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer)
+        val_loss, val_acc = validate_epoch(model, val_loader, criterion)
 
-            progress_bar.update(1)
-        progress_bar.close()
-        # Validation
-        model.eval()
-        val_loss = 0.0
-        val_acc = 0.0
-        with torch.no_grad():
-            for inputs, targets in val_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
-                val_loss += loss.item() * inputs.size(0)
-                val_acc += RMSELoss()(outputs, targets).item() * inputs.size(0)
+        # 打印結果
+        print(f"Epoch [{epoch+1}/{num_epochs}]")
+        print(f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
+        print(f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
 
-        # Print statistics
-        train_loss_avg = running_loss / len(train_loader)
-        val_loss_avg = val_loss / len(val_loader)
-        train_acc_avg = acc / len(train_loader)
-        val_acc_avg = val_acc / len(val_loader)
+        # 記錄到 TensorBoard
+        writer.add_scalars('Loss', {'train': train_loss, 'val': val_loss}, epoch)
+        writer.add_scalars('Accuracy', {'train': train_acc, 'val': val_acc}, epoch)
 
-        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {train_loss_avg:.4f}, Val Loss: {val_loss_avg:.4f}")
-        print(f"Train RMSE: {train_acc_avg:.4f}, Val RMSE: {val_acc_avg:.4f}")
-        # Log to Tensorboard
-        writer.add_scalar('Loss/train', train_loss_avg, epoch)
-        writer.add_scalar('Loss/val', val_loss_avg, epoch)
-
-        if val_loss_avg < best_val_loss:
-            best_val_loss = val_loss_avg
-            best_model = model.state_dict()
-            print(f"Best model saved at epoch {epoch+1} with val loss: {best_val_loss:.4f}")
-            torch.save(best_model, os.path.join("model_weights", "best_model.pth"))
-
-        
+        # 保存最佳模型
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save(model.state_dict(), best_model_path)
+            print(f"Best model saved with val loss: {best_val_loss:.4f}")
 
     writer.close()
-    
-
-# 設定 hyperparameters : batch_size, num_epochs, learning_rate
+    print("Training completed.")
 
 def get_args():
-    args = argparse.ArgumentParser(description='GRU Predictor Training')
-    args.add_argument('--batch_size', type=int, default=16, help='Batch size for training')
-    args.add_argument('--num_epochs', type=int, default=40, help='Number of epochs for training')
-    args.add_argument('--learning_rate', type=float, default=5e-5, help='Learning rate for optimizer')
-    args.add_argument('--weight_decay', type=float, default=1e-5, help='Weight decay for optimizer')
-
-    return args.parse_args()
+    parser = argparse.ArgumentParser(description='GRU Predictor Training')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch size for training')
+    parser.add_argument('--num_epochs', type=int, default=200, help='Number of epochs for training')
+    parser.add_argument('--learning_rate', type=float, default=5e-5, help='Learning rate for optimizer')
+    parser.add_argument('--weight_decay', type=float, default=1e-5, help='Weight decay for optimizer')
+    return parser.parse_args()
 
 if __name__ == "__main__":
     args = get_args()
-    train_model(args.batch_size, args.num_epochs, args.learning_rate, args.weight_decay)
-    print("Training completed.")
+    train_model(
+        batch_size=args.batch_size,
+        num_epochs=args.num_epochs,
+        learning_rate=args.learning_rate,
+        weight_decay=args.weight_decay
+    )
