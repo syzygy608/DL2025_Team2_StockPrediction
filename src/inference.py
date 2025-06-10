@@ -9,7 +9,7 @@ import tqdm
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from model.model import CNNLSTMPredictor
+from model.model import Predictor
 from dataloader import load_dataset
 from evaluate import compute_accuracy
 
@@ -44,7 +44,7 @@ def load_model(model_path):
     """載入模型並設置為評估模式"""
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model file {model_path} does not exist.")
-    model = CNNLSTMPredictor().to(device)
+    model = Predictor().to(device)
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
     return model

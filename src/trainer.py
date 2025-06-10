@@ -10,7 +10,7 @@ import tqdm
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from model.model import CNNLSTMPredictor
+from model.model import Predictor
 from dataloader import load_dataset
 from evaluate import compute_accuracy
 
@@ -73,7 +73,7 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     # 初始化模型、損失函數和優化器
-    model = CNNLSTMPredictor().to(device)
+    model = Predictor().to(device)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
