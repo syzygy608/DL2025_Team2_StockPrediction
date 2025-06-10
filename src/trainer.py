@@ -24,7 +24,7 @@ def train_epoch(model, train_loader, criterion, optimizer):
     running_acc = 0.0
     total_samples = 0
 
-    progress_bar = tqdm.tqdm(train_loader, desc="Training", unit="batch")
+    progress_bar = tqdm.tqdm(train_loader, desc="Training", unit="batch", ncols=100, leave=False)
     for inputs, targets in progress_bar:
         inputs, targets = inputs.to(device), targets.to(device).float()
         optimizer.zero_grad()
@@ -37,7 +37,6 @@ def train_epoch(model, train_loader, criterion, optimizer):
         running_loss += loss.item() * batch_size
         running_acc += compute_accuracy(outputs, targets) * batch_size
         total_samples += batch_size
-        progress_bar.set_postfix({"loss": f"{loss.item():.4f}"})
 
     return running_loss / total_samples, running_acc / total_samples
 
@@ -73,17 +72,11 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
 
     # Initialize model
     model = Predictor().to(device)
-    
-    # Compute pos_weight for class imbalance
-    train_labels = train_dataset.tensors[1]
-    neg_count = (train_labels == 0).sum().item()
-    pos_count = (train_labels == 1).sum().item()
-    pos_weight = torch.tensor([neg_count / pos_count], device=device) if pos_count > 0 else torch.tensor([1.0], device=device)
-    
+        
     # Initialize loss function and optimizer
-    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, threshold=1e-4)
 
     # Initialize TensorBoard
     writer = SummaryWriter()
