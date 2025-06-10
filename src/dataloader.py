@@ -5,6 +5,9 @@ import torch.nn as nn
 from sklearn.model_selection import train_test_split
 import os
 from torch.utils.data import TensorDataset
+import requests
+import zipfile
+import tqdm
 
 class TimeSeriesDataset:
     def __init__(self, data, look_back=20):
@@ -17,12 +20,16 @@ class TimeSeriesDataset:
 
     def min_max_normalization_tensor(self, tensor):
         copy_tensor = tensor.clone()
-        min_val = copy_tensor.min(dim=0, keepdim=True).values
-        max_val = copy_tensor.max(dim=0, keepdim=True).values
-        range_val = torch.where(max_val - min_val == 0, torch.tensor(1.0, device=range_val.device), max_val - min_val)
+        min_val = copy_tensor.min(dim=0, keepdim=True).values  # Shape: [1, n_features]
+        max_val = copy_tensor.max(dim=0, keepdim=True).values  # Shape: [1, n_features]
+        range_val = torch.where(
+            max_val - min_val == 0,
+            torch.tensor(1.0, device=copy_tensor.device),  # Use input tensor's device
+            max_val - min_val
+        )
         normalized_tensor = (copy_tensor - min_val) / range_val
         return normalized_tensor
-
+    
     def generate_sequences(self, group, embedding_dim=10):
         """為單個公司生成時間序列片段"""
         # Convert date to time index
