@@ -30,16 +30,23 @@ class TimeSeriesDataset:
         normalized_tensor = (copy_tensor - min_val) / range_val
         return normalized_tensor
     
-    def generate_sequences(self, group, embedding_dim=10):
+    def generate_sequences(self, group):
         """為單個公司生成時間序列片段"""
         # Convert date to time index
         group['Date'] = pd.to_datetime(group['Date'])
         group['Date'] = (group['Date'] - group['Date'].min()).dt.total_seconds() / (24 * 3600)
 
+        # 新增 SMA5, EMA20 指標
+        group['SMA5'] = group['Adj Close'].rolling(window=5).mean()
+        group['EMA20'] = group['Adj Close'].ewm(span=20, adjust=False).mean()
+
+        group = group.fillna(method='bfill').fillna(method='ffill')  # 填充缺失值
+        # 確保數據按日期排序
+        group = group.sort_values('Date').reset_index(drop=True)
         # Prepare input features
         company_embeds_np = np.array(group['Company Embedding'].tolist())  # Shape: [n, 10]
         company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
-        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'Adj Close', 'High', 'Low', 'Volume']].values, 
+        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'Adj Close', 'High', 'Low', 'Volume', 'SMA5', 'EMA20']].values, 
                                      dtype=torch.float32).to(self.device)  # Shape: [n, 7]
         inputs_tensor = torch.cat((company_embeds, other_features), dim=1)  # Shape: [n, 17]
 
