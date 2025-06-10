@@ -128,7 +128,6 @@ class TimeSeriesDataset:
         vocab = {name: idx for idx, name in enumerate(self.data['Company Name'].unique())}
         vocab_size = len(vocab)
 
-
         company_indices = [vocab[name] for name in self.data['Company Name'].values]
         company_indices_tensor = torch.tensor(company_indices, dtype=torch.long).to(device)  # 將公司名稱轉換為索引並轉移到設備上
         embedding_layer = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim).to(device)
@@ -158,7 +157,7 @@ class TimeSeriesDataset:
                     else:
                         outputs.append(0)
                         
-            company_embeds = torch.tensor(group['Company Name'].values.tolist(), dtype=torch.float32).to(device)  # 嵌入向量
+            company_embeds = torch.tensor(group['Company Embedding'].values.tolist(), dtype=torch.float32).to(device)  # 嵌入向量
             other_features = torch.tensor(group[['Date', 'Open', 'Close', 'Adj Close', 'High', 'Low', 'Volume']].values, 
                              dtype=torch.float32).to(device)
             # 合併嵌入向量和其他特徵
