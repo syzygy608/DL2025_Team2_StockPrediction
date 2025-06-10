@@ -2,7 +2,7 @@
 import torch.nn as nn
 
 class CNNLSTMPredictor(nn.Module):
-    def __init__(self, input_dim=17, conv_filters=64, kernel_size=3, lstm_hidden_dim=128, dropout=0.3):
+    def __init__(self, input_dim=17, conv_filters=64, kernel_size=3, lstm_hidden_dim=128, dropout=0.1):
         """
         CNN + LSTM 模型用於股票二元趨勢預測
         Args:
