@@ -130,7 +130,7 @@ class TimeSeriesDataset:
 
 
         company_indices = [vocab[name] for name in self.data['Company Name'].values]
-        company_indices_tensor = torch.tensor(company_indices, dtype=torch.long)
+        company_indices_tensor = torch.tensor(company_indices, dtype=torch.long).to(device)  # 將公司名稱轉換為索引並轉移到設備上
         embedding_layer = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim).to(device)
         self.data['Company Embedding'] = embedding_layer(company_indices_tensor).cpu().detach().numpy()  # 將嵌入向量添加到 DataFrame 中
 
