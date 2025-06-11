@@ -92,7 +92,7 @@ def main():
     print(f"Loaded model from {model_path}")
 
     # 定義損失函數
-    criterion = nn.HuberLoss()
+    criterion = nn.HuberLoss().to(device)  # 使用 Huber Loss 作為損失函數
 
     # 評估模型
     avg_loss, avg_acc = evaluate_model(model, test_loader, criterion)

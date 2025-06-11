@@ -99,10 +99,12 @@ class GRUPredictor(nn.Module):
         self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
         # 全連接層
         self.fc = nn.Linear(hidden_size, output_size)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
         # GRU 前向傳播
         out, _ = self.gru(x)
         # 取最後一個時間步的輸出
         out = self.fc(out[:, -1, :])
+        out = self.relu(out)
         return out
