@@ -173,11 +173,6 @@ class TimeSeriesDataset:
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)
         self.test_data = (test_X, test_y)
-
-        print(f"Train labels: 1s={train_y.mean().item():.4f}, 0s={1-train_y.mean().item():.4f}, total={len(train_y)}")
-        print(f"Val labels: 1s={val_y.mean().item():.4f}, 0s={1-val_y.mean().item():.4f}, total={len(val_y)}")
-        print(f"Test labels: 1s={test_y.mean().item():.4f}, 0s={1-test_y.mean().item():.4f}, total={len(test_y)}")
-
     def __getitem__(self, index):
         return self.data.iloc[index]
     
