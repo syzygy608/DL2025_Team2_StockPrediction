@@ -31,7 +31,8 @@ class TimeSeriesDataset:
         normalized_tensor = (copy_tensor - min_val) / range_val
         return normalized_tensor
     
-    def generate_sequences(self, group):
+    def generate_sequences(self, group, first_date):
+        """生成時間序列序列和標籤"""
 
         # 新增 SMA5, EMA20 指標
         group['SMA5'] = group['Adj Close'].rolling(window=5).mean()
@@ -40,6 +41,15 @@ class TimeSeriesDataset:
         group = group.ffill().bfill()  # 前向填充和後向填充缺失值
         # 確保數據按日期排序
         group = group.sort_values('Date')
+
+        group['Date'] = (group['Date'] - pd.to_datetime(first_date)).dt.days  # 將日期轉換為天數
+
+        # 確保所有必要的列都存在
+        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA5', 'EMA20']
+        for col in required_columns:
+            if col not in group.columns:
+                raise ValueError(f"Missing required column: {col}")
+
         # Prepare input features
         company_embeds_np = np.array(group['Company Embedding'].tolist())
         company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
@@ -93,6 +103,9 @@ class TimeSeriesDataset:
         val_start = '2015-08-01'
         test_start = '2015-10-01'
 
+        # 紀錄第一天
+        first_date = self.data['Date'].min()
+
         # 與原論文相同，使用時間序分割數據集
         train_data = self.data[self.data['Date'] < val_start]
         val_data = self.data[(self.data['Date'] >= val_start) & (self.data['Date'] < test_start)]
@@ -109,19 +122,19 @@ class TimeSeriesDataset:
         # Group by 'Company Name' and generate sequences
         grouped_train = train_data.groupby('Company Name')
         for name, group in grouped_train:
-            sequences, labels = self.generate_sequences(group)
+            sequences, labels = self.generate_sequences(group, first_date)
             train_sequences.extend(sequences)
             train_labels.extend(labels)
         
         grouped_val = val_data.groupby('Company Name')
         for name, group in grouped_val:
-            sequences, labels = self.generate_sequences(group)
+            sequences, labels = self.generate_sequences(group, first_date)
             val_sequences.extend(sequences)
             val_labels.extend(labels)
         
         grouped_test = test_data.groupby('Company Name')
         for name, group in grouped_test:
-            sequences, labels = self.generate_sequences(group)
+            sequences, labels = self.generate_sequences(group, first_date)
             test_sequences.extend(sequences)
             test_labels.extend(labels)
 
