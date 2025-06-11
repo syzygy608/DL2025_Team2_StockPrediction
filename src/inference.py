@@ -20,7 +20,6 @@ def evaluate_model(model, test_loader, criterion):
     """評估模型在測試集上的性能"""
     model.eval()
     running_loss = 0.0
-    running_acc = 0.0
     total_samples = 0
 
     # 繪製 actual 和 predicted 的圖形
@@ -40,17 +39,15 @@ def evaluate_model(model, test_loader, criterion):
 
             batch_size = inputs.size(0)
             running_loss += loss.item() * batch_size
-            running_acc += directional_accuracy(outputs, targets) * batch_size
             total_samples += batch_size
 
             # 收集實際值和預測值
             actuals.extend(targets.cpu().numpy())
             predictions.extend(outputs.cpu().numpy())
             # 更新進度條
-            progress_bar.set_postfix(loss=loss.item(), acc=running_acc / total_samples)
+            progress_bar.set_postfix(loss=loss.item())
 
     avg_loss = running_loss / total_samples
-    avg_acc = running_acc / total_samples
     progress_bar.close()
     plt.plot(actuals, label='Actual', color='blue', alpha=0.5)
     plt.plot(predictions, label='Predicted', color='red', alpha=0.5)
@@ -59,11 +56,11 @@ def evaluate_model(model, test_loader, criterion):
     plt.pause(0.001)  # 暫停以更新圖形
     plt.savefig('actual_vs_predicted.png')  # 儲存圖形
     plt.close()
-    print(f"Evaluation completed: Avg Loss: {avg_loss:.4f}, Avg Accuracy: {avg_acc:.4f}")
+    print(f"Evaluation completed: Avg Loss: {avg_loss:.4f}")
     print(f"Min value of predictions: {min(predictions):.4f}, Max value of predictions: {max(predictions):.4f}")
     print(f"Min value of actuals: {min(actuals):.4f}, Max value of actuals: {max(actuals):.4f}")
     print(f"Total samples evaluated: {total_samples}")
-    return avg_loss, avg_acc
+    return avg_loss
 
 def main():
     # 解析參數
@@ -95,12 +92,10 @@ def main():
     criterion = nn.HuberLoss().to(device)  # 使用 Huber Loss 作為損失函數
 
     # 評估模型
-    avg_loss, avg_acc = evaluate_model(model, test_loader, criterion)
+    avg_loss = evaluate_model(model, test_loader, criterion)
 
 
     print(f"Test Loss): {avg_loss:.4f}")
-    print(f"Test Accuracy: {avg_acc:.4f}")
-
 
 
 if __name__ == "__main__":

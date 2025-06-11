@@ -12,7 +12,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from model.model import Predictor, GRUPredictor
 from dataloader import load_dataset
-from evaluate import directional_accuracy
 
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -21,7 +20,6 @@ def train_epoch(model, train_loader, criterion, optimizer, acc=None):
     """Single epoch training logic"""
     model.train()
     running_loss = 0.0
-    running_acc = 0.0
     total_samples = 0
 
     progress_bar = tqdm.tqdm(train_loader, desc="Training", unit="batch", ncols=100, leave=False)
@@ -35,16 +33,14 @@ def train_epoch(model, train_loader, criterion, optimizer, acc=None):
 
         batch_size = inputs.size(0)
         running_loss += loss.item() * batch_size
-        running_acc += acc(outputs, targets) * batch_size
         total_samples += batch_size
 
-    return running_loss / total_samples, running_acc / total_samples
+    return running_loss / total_samples
 
 def validate_epoch(model, val_loader, criterion, acc=None):
     """Single epoch validation logic"""
     model.eval()
     running_loss = 0.0
-    running_acc = 0.0
     total_samples = 0
 
     with torch.no_grad():
@@ -55,10 +51,9 @@ def validate_epoch(model, val_loader, criterion, acc=None):
 
             batch_size = inputs.size(0)
             running_loss += loss.item() * batch_size
-            running_acc += acc(outputs, targets) * batch_size
             total_samples += batch_size
 
-    return running_loss / total_samples, running_acc / total_samples
+    return running_loss / total_samples
 
 def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay):
     # Create model save directory
@@ -97,24 +92,19 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
     patience = 10
     counter = 0
     for epoch in range(num_epochs):
-        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer,  directional_accuracy)
-        val_loss, val_acc = validate_epoch(model, val_loader, criterion,  directional_accuracy)
+        train_loss = train_epoch(model, train_loader, criterion, optimizer)
+        val_loss = validate_epoch(model, val_loader, criterion)
 
         # Update learning rate
         scheduler.step()
 
         # Print results
         print(f"Epoch [{epoch+1}/{num_epochs}]")
-        print(f"Train Directional Acc: {train_acc:.4f}")
-        print(f"Train Loss: {train_loss:.4f}")
-        print(f"Val Directional Acc: {val_acc:.4f}")
-        print(f"Val Loss: {val_loss:.4f}")
         print(f"Current Learning Rate: {optimizer.param_groups[0]['lr']:.6f}")
         print(f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
 
         # Log to TensorBoard
         writer.add_scalars('Loss', {'train': train_loss, 'val': val_loss}, epoch)
-        writer.add_scalars('Directional Accuracy', {'train': train_acc, 'val': val_acc}, epoch)
         writer.add_scalar('Learning Rate', optimizer.param_groups[0]['lr'], epoch)
 
         # Save best model

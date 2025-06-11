@@ -234,7 +234,7 @@ def preprocess_data(data_dir):
             file_path = os.path.join(data_dir, file)
             df = pd.read_csv(file_path)
             company_name = file.split(".")[0]  # 使用檔名作為公司名稱
-            if company_name  == "PCLN" or company_name == "BRK-A":
+            if company_name  == "PCLN" or company_name == "BRK-A" or company_name == "GOOG" or company_name == "AMZN":
                 continue  # 跳過 PCLN 和 BRK-A 公司"
             df["Company Name"] = company_name
             all_data.append(df)
