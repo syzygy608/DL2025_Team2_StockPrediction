@@ -3,7 +3,7 @@ import torch.nn as nn
 class Predictor(nn.Module):
     def __init__(self, input_dim=18, conv_filters=128, kernel_size=3, lstm_hidden_dim=256, dropout=0.3, num_layers=2):
         """
-        Enhanced CNN + LSTM model for stock binary trend prediction
+        Enhanced CNN + LSTM model for stock trend prediction
         Args:
             input_dim (int): Input feature dimension (embedding_dim + 7 = 10 + 7)
             conv_filters (int): Number of convolutional filters

@@ -59,15 +59,9 @@ class TimeSeriesDataset:
                                      dtype=torch.float32).to(self.device)
         inputs_tensor = torch.cat((company_embeds, other_features), dim=1)
 
-        # Generate labels
-        outputs = []
-        for i in range(len(group)):
-            if i == 0:
-                outputs.append(0)
-            else:
-                outputs.append(1 if group['Adj Close'].iloc[i] > group['Adj Close'].iloc[i - 1] else 0)
+        outputs = group['Adj Close'].values().astype(np.float32)
         
-        outputs_tensor = torch.tensor(outputs, dtype=torch.float).to(self.device)
+        outputs_tensor = torch.tensor(outputs, dtype=torch.float32).to(self.device)
 
         # Create time-series sequences
         tensors = []
