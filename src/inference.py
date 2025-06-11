@@ -38,6 +38,10 @@ def evaluate_model(model, test_loader, criterion):
             outputs = model(inputs)
             loss = criterion(outputs, targets)
 
+            print(f"Sample logits: {outputs[:10].cpu().numpy()}")
+            print(f"Sample probs: {torch.sigmoid(outputs[:10]).cpu().numpy()}")
+            print(f"Sample targets: {targets[:10].cpu().numpy()}")
+
             batch_size = inputs.size(0)
             running_loss += loss.item() * batch_size
             running_acc += binary_accuracy(outputs, targets) * batch_size

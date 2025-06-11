@@ -53,7 +53,7 @@ class TimeSeriesDataset:
         group['Date'] = (pd.to_datetime(group['Date']) - pd.to_datetime(first_date)).dt.days  # 將日期轉換為天數
 
         # 確保所有必要的列都存在
-        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20']
+        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA20', 'LMA50', 'SVA20', 'LVA50', 'EMA20']
         for col in required_columns:
             if col not in group.columns:
                 raise ValueError(f"Missing required column: {col}")
@@ -61,7 +61,7 @@ class TimeSeriesDataset:
         # Prepare input features
         company_embeds_np = np.array(group['Company Embedding'].tolist())
         company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
-        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20']].values,
+        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'SMA20', 'LMA50', 'SVA20', 'LVA50', 'EMA20']].values,
                                      dtype=torch.float32).to(self.device)
         inputs_tensor = torch.cat((company_embeds, other_features), dim=1)
         
@@ -164,13 +164,19 @@ class TimeSeriesDataset:
             min_val, range_val = self.compute_min_max(train_X[:, :, 5:])
             train_X[:, :, 5:] = self.apply_min_max(train_X[:, :, 5:], min_val, range_val)
             if len(val_X) > 0:
+                min_val, range_val = self.compute_min_max(val_X[:, :, 5:])
                 val_X[:, :, 5:] = self.apply_min_max(val_X[:, :, 5:], min_val, range_val)
             if len(test_X) > 0:
+                min_val, range_val = self.compute_min_max(test_X[:, :, 5:])
                 test_X[:, :, 5:] = self.apply_min_max(test_X[:, :, 5:], min_val, range_val)
 
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)
         self.test_data = (test_X, test_y)
+
+        print(f"Train labels: 1s={train_y.mean().item():.4f}, 0s={1-train_y.mean().item():.4f}, total={len(train_y)}")
+        print(f"Val labels: 1s={val_y.mean().item():.4f}, 0s={1-val_y.mean().item():.4f}, total={len(val_y)}")
+        print(f"Test labels: 1s={test_y.mean().item():.4f}, 0s={1-test_y.mean().item():.4f}, total={len(test_y)}")
 
     def __getitem__(self, index):
         return self.data.iloc[index]
