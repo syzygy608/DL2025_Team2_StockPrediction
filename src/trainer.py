@@ -40,7 +40,8 @@ def train_epoch(model, train_loader, criterion, optimizer, acc1=None, acc2=None)
         running_acc2 += acc2(outputs, targets) * batch_size
         total_samples += batch_size
 
-    return running_loss / total_samples, running_acc1 / total_samples, running_acc2 / total_samples
+    running_acc1 = torch.sqrt(running_acc1 / total_samples)  # Convert MSE to RMSE
+    return running_loss / total_samples, running_acc1, running_acc2 / total_samples
 
 def validate_epoch(model, val_loader, criterion, acc1=None, acc2=None):
     """Single epoch validation logic"""
@@ -62,7 +63,8 @@ def validate_epoch(model, val_loader, criterion, acc1=None, acc2=None):
             running_acc2 += acc2(outputs, targets) * batch_size
             total_samples += batch_size
 
-    return running_loss / total_samples, running_acc1 / total_samples, running_acc2 / total_samples
+    running_acc1 = torch.sqrt(running_acc1 / total_samples)  # Convert MSE to RMSE
+    return running_loss / total_samples, running_acc1, running_acc2 / total_samples
 
 def train_model(batch_size, num_epochs, learning_rate, weight_decay):
     # Create model save directory
