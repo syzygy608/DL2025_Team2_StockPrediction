@@ -1,12 +1,183 @@
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+from sklearn.model_selection import train_test_split
 import os
+from torch.utils.data import TensorDataset
 import requests
 import zipfile
 import tqdm
-import pandas as pd
-import torch
-from torch.utils.data import TensorDataset
 
-# 1. 自動下載數據集
+class TimeSeriesDataset:
+    def __init__(self, data, look_back=60):
+        self.data = data
+        self.look_back = look_back
+        self.train_data = None
+        self.val_data = None
+        self.test_data = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.input_dim = 15
+
+
+    def compute_min_max(self, tensor):
+        """計算 Min-Max Normalization 的參數（min 和 max）"""
+        min_val = tensor.min(dim=0, keepdim=True).values  # Shape: [1, n_features]
+        max_val = tensor.max(dim=0, keepdim=True).values  # Shape: [1, n_features]
+        range_val = torch.where(
+            max_val - min_val == 0,
+            torch.tensor(1.0, device=tensor.device),
+            max_val - min_val
+        )
+        return min_val, range_val
+
+    def apply_min_max(self, tensor, min_val, range_val):
+        """應用 Min-Max Normalization，使用給定的 min 和 range"""
+        copy_tensor = tensor.clone()
+        normalized_tensor = (copy_tensor - min_val) / range_val
+        return normalized_tensor
+
+    def generate_sequences(self, group, first_date):
+        """生成時間序列序列和標籤"""
+
+        group['SMA20'] = group['Adj Close'].rolling(window=20).mean()
+        group['LMA50'] = group['Adj Close'].rolling(window=50).mean()
+        group['SVA20'] = group['Adj Close'].rolling(window=20).std()
+        group['LVA50'] = group['Adj Close'].rolling(window=50).std()
+        group['EMA20'] = group['Adj Close'].ewm(span=20, adjust=False).mean()
+
+        group = group.ffill().bfill()  # 前向填充和後向填充缺失值
+        # 確保數據按日期排序
+        group = group.sort_values('Date')
+
+        group['Date'] = (pd.to_datetime(group['Date']) - pd.to_datetime(first_date)).dt.days  # 將日期轉換為天數
+
+        # 確保所有必要的列都存在
+        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20']
+        for col in required_columns:
+            if col not in group.columns:
+                raise ValueError(f"Missing required column: {col}")
+
+        # Prepare input features
+        company_embeds_np = np.array(group['Company Embedding'].tolist())
+        company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
+        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20']].values,
+                                     dtype=torch.float32).to(self.device)
+        inputs_tensor = torch.cat((company_embeds, other_features), dim=1)
+        
+        # Prepare output features
+        output = []
+        for i in range(len(group)):
+            if i == 0:
+                output.append(0.0)
+            else:
+                output.append(1.0 if group['Adj Close'].iloc[i] > group['Adj Close'].iloc[i - 1] else 0.0)
+        outputs_tensor = torch.tensor(output, dtype=torch.float32).to(self.device)
+
+        # Create time-series sequences
+        tensors = []
+        targets = []
+        for i in range(len(inputs_tensor) - self.look_back):
+            x = inputs_tensor[i:i + self.look_back]
+            y = outputs_tensor[i + self.look_back - 1]
+            tensors.append(x)
+            targets.append(y)
+        
+        return tensors, targets
+
+    def create_dataset(self):
+        """生成所有公司的序列和嵌入"""
+        # Create vocabulary and embeddings
+        vocab = {name: idx for idx, name in enumerate(self.data['Company Name'].unique())}
+        vocab_size = len(vocab)
+        embedding_dim = 4
+        company_indices = [vocab[name] for name in self.data['Company Name'].values]
+        company_indices_tensor = torch.tensor(company_indices, dtype=torch.long).to(self.device)
+        embedding_layer = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim).to(self.device)
+        
+        # Store embeddings
+        embedded_company_names = embedding_layer(company_indices_tensor).cpu().detach().numpy()
+        self.data['Company Embedding'] = list(embedded_company_names)
+        
+
+    def split_data(self):
+        # 2012-9-4 to 2017-8-9
+        # 共 1800 天，切分成 8:1:1 的比例
+
+        self.create_dataset()  # 生成公司嵌入
+
+        # 紀錄第一天
+        first_date = pd.to_datetime(self.data['Date'].min())
+        self.data['Date'] = pd.to_datetime(self.data['Date'])
+        # 確保日期排序
+        self.data = self.data.sort_values('Date').reset_index(drop=True)
+        # 分割數據集
+        self.data = self.data[(self.data['Date'] >= '2012-09-04') & (self.data['Date'] <= '2017-08-09')]
+        train_data, test_data = train_test_split(self.data, test_size=0.2, shuffle=False)
+        val_data, test_data = train_test_split(test_data, test_size=0.5, shuffle=False)
+
+        print(f"Train data size: {len(train_data)}, Validation data size: {len(val_data)}, Test data size: {len(test_data)}")
+        
+
+        # 生成 Time Series Sequences
+        train_sequences = []
+        train_labels = []
+        val_sequences = []
+        val_labels = []
+        test_sequences = []
+        test_labels = []
+
+        # Group by 'Company Name' and generate sequences
+        grouped_train = train_data.groupby('Company Name')
+        for name, group in grouped_train:
+            sequences, labels = self.generate_sequences(group, first_date)
+            train_sequences.extend(sequences)
+            train_labels.extend(labels)
+        
+        grouped_val = val_data.groupby('Company Name')
+        for name, group in grouped_val:
+            sequences, labels = self.generate_sequences(group, first_date)
+            val_sequences.extend(sequences)
+            val_labels.extend(labels)
+        
+        grouped_test = test_data.groupby('Company Name')
+        for name, group in grouped_test:
+            sequences, labels = self.generate_sequences(group, first_date)
+            test_sequences.extend(sequences)
+            test_labels.extend(labels)
+
+        # Convert to tensors
+        train_X = torch.stack(train_sequences) if train_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
+        train_y = torch.tensor(train_labels, dtype=torch.float).to(self.device)
+        val_X = torch.stack(val_sequences) if val_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
+        val_y = torch.tensor(val_labels, dtype=torch.float).to(self.device)
+        test_X = torch.stack(test_sequences) if test_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
+        test_y = torch.tensor(test_labels, dtype=torch.float).to(self.device)
+
+        if len(train_X) > 0:
+            min_embeds, range_embeds = self.compute_min_max(train_X[:, :, :4])
+            train_X[:, :, :4] = self.apply_min_max(train_X[:, :, :4], min_embeds, range_embeds)
+            if len(val_X) > 0:
+                val_X[:, :, :4] = self.apply_min_max(val_X[:, :, :4], min_embeds, range_embeds)
+            if len(test_X) > 0:
+                test_X[:, :, :4] = self.apply_min_max(test_X[:, :, :4], min_embeds, range_embeds)
+            min_val, range_val = self.compute_min_max(train_X[:, :, 5:])
+            train_X[:, :, 5:] = self.apply_min_max(train_X[:, :, 5:], min_val, range_val)
+            if len(val_X) > 0:
+                val_X[:, :, 5:] = self.apply_min_max(val_X[:, :, 5:], min_val, range_val)
+            if len(test_X) > 0:
+                test_X[:, :, 5:] = self.apply_min_max(test_X[:, :, 5:], min_val, range_val)
+
+        self.train_data = (train_X, train_y)
+        self.val_data = (val_X, val_y)
+        self.test_data = (test_X, test_y)
+
+    def __getitem__(self, index):
+        return self.data.iloc[index]
+    
+    def __len__(self):
+        return len(self.data)
+    
 def download_stocknet_dataset():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     save_dir = os.path.join(current_dir, "../dataset")
@@ -74,135 +245,44 @@ def download_stocknet_dataset():
 
 def preprocess_data(data_dir):
     # 數據預處理邏輯
-    # 將所有 csv 檔案合併成一個 DataFrame，新增欄位 company_id，以第幾個檔案為 id
+    # 將所有 csv 檔案合併成一個 DataFrame，新增欄位 "Company Name" 來標識公司名稱
     all_data = []
-    idx = 1
-    for i, file in enumerate(os.listdir(data_dir)):
+    for file in os.listdir(data_dir):
         if file.endswith(".csv"):
             file_path = os.path.join(data_dir, file)
             df = pd.read_csv(file_path)
-            company_name = file.split('.')[0]  # 取得公司名稱
-            if company_name == "PCLN" or company_name == "BRK-A":
-                print(f"跳過不支援的公司：{company_name}")
-                continue
-            df["Company_id"] = idx  # 新增欄位 company_id
+            company_name = file.split(".")[0]  # 使用檔名作為公司名稱
+            if company_name  == "PCLN" or company_name == "BRK-A":
+                continue  # 跳過 PCLN 和 BRK-A 公司"
+            df["Company Name"] = company_name
             all_data.append(df)
-            idx += 1
     
     combined_data = pd.concat(all_data, ignore_index=True)
     combined_data = combined_data.dropna()  # 去除缺失值
     combined_data = combined_data.reset_index(drop=True)  # 重設索引
 
-    # 將 Date 切分成 年、月、日三個欄位
     combined_data["Date"] = pd.to_datetime(combined_data["Date"])
-    combined_data["Year"] = combined_data["Date"].dt.year
-    combined_data["Month"] = combined_data["Date"].dt.month
-    combined_data["Day"] = combined_data["Date"].dt.day
-    combined_data = combined_data.drop(columns=["Date"])  # 刪除原始的 Date 欄位
-    
-    # 將 Company_id 放到最前面
-    cols = list(combined_data.columns)
-    cols.insert(0, cols.pop(cols.index("Company_id")))
-    combined_data = combined_data[cols]
 
     # 儲存預處理後的數據
     preprocessed_path = os.path.join(data_dir, "preprocessed_data.csv")
     combined_data.to_csv(preprocessed_path, index=False)
     print(f"預處理後的數據已儲存至 {preprocessed_path}")
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-class TimeSeriesDataset:
-    def __init__(self, data, look_back=7):
-        self.data = data
-        self.look_back = look_back
-        self.train_data = None
-        self.val_data = None
-        self.test_data = None
-
-    def logp_tensor(self, tensor):
-        # 複製輸入張量，避免修改原始數據
-        logp_tensor = tensor.clone()
-        # 對張量進行對數變換
-        logp_tensor = torch.log1p(logp_tensor)
-        return logp_tensor
-
-    def create_dataset(self):
-        input_cols = ['Company_id', 'Year', 'Month', 'Day', 'Open', 'High', 'Low', 'Adj Close', 'Volume']
-        output_cols = ['Close']
-
-        tensors = []
-        targets = []
-
-        for id in self.data['Company_id'].unique():
-            group = self.data[self.data['Company_id'] == id].sort_values(['Year', 'Month', 'Day'])
-
-            if len(group) < self.look_back:
-                print(f"Skipping {id}: only {len(group)} rows, need at least {self.look_back}")
-                continue
-        
-            inputs = group[input_cols].values
-            outputs = group[output_cols].values
-            
-            inputs_tensor = torch.tensor(inputs, dtype=torch.float32).to(device)
-            outputs_tensor = torch.tensor(outputs, dtype=torch.float32).to(device)
-
-            for i in range(len(inputs_tensor) - self.look_back):
-                x = inputs_tensor[i:i + self.look_back]
-                y = outputs_tensor[i + self.look_back - 1]
-                tensors.append(x)
-                targets.append(y)
-            
-        tensors = torch.stack(tensors)
-        targets = torch.stack(targets)
-        return tensors, targets
-
-    def standardize_tensor(self, tensor, reference_tensor=None):
-        if reference_tensor is not None:
-            mean = reference_tensor.mean(dim=(0, 1), keepdim=True)
-            std = reference_tensor.std(dim=(0, 1), keepdim=True)
-        else:
-            mean = tensor.mean(dim=(0, 1), keepdim=True)
-            std = tensor.std(dim=(0, 1), keepdim=True)
-        
-        std = torch.where(std == 0, torch.tensor(1.0, device=std.device), std)
-        normalized_tensor = (tensor - mean) / std
-        
-        print(f"Standardized tensor - Mean: {normalized_tensor.mean().item():.4f}, Std: {normalized_tensor.std().item():.4f}")
-        return normalized_tensor, mean, std
-
-    def split_data(self, train_size=0.8, val_size=0.1):
-        X, y = self.create_dataset()
-        total_len = len(X)
-        train_len = int(total_len * train_size)
-        val_len = int(total_len * val_size)
-
-        train_X, val_X, test_X = X[:train_len], X[train_len:train_len + val_len], X[train_len + val_len:]
-        train_y, val_y, test_y = y[:train_len], y[train_len:train_len + val_len], y[train_len + val_len:]
-
-        train_X[:, :, 4:] = self.logp_tensor(train_X[:, :, 4:])
-        val_X[:, :, 4:] = self.logp_tensor(val_X[:, :, 4:])
-        test_X[:, :, 4:] = self.logp_tensor(test_X[:, :, 4:])
-
-        self.train_data = (train_X, train_y)
-        self.val_data = (val_X, val_y)
-        self.test_data = (test_X, test_y)
     
-    def __getitem__(self, index):
-        return self.data.iloc[index]
-    
-    def __len__(self):
-        return len(self.data)
-
 def load_dataset(mode, data_dir="../dataset"):
     """
     Load the dataset based on the mode (train, val, test).
     """
     path = os.path.dirname(__file__)
     path = os.path.join(path, data_dir)
-    data = pd.read_csv(os.path.join(path, 'preprocessed_data.csv'))
-    dataset = TimeSeriesDataset(data=data, look_back=7)
-    dataset.split_data(train_size=0.8, val_size=0.1)
+    
+    if not os.path.exists(os.path.join(path, "preprocessed_data.csv")):
+        data_dir = download_stocknet_dataset()
+        preprocess_data(data_dir)
+    
+    data = pd.read_csv(os.path.join(path, "preprocessed_data.csv"))
+    dataset = TimeSeriesDataset(data)
+    # 分割數據集
+    dataset.split_data()
     
     if mode == 'train':
         X, y = dataset.train_data
@@ -212,43 +292,10 @@ def load_dataset(mode, data_dir="../dataset"):
         X, y = dataset.test_data
     else:
         raise ValueError("Invalid mode. Choose from 'train', 'val', or 'test'.")
+    
+    # 印前幾個樣本的內容
+    print(f"Loaded {mode} dataset with {len(X)} samples.")
+    print(f"Sample X shape: {X.shape}, Sample y shape: {y.shape}")
+
+    # 返回 TensorDataset
     return TensorDataset(X, y)
-
-def print_dataset(dataset, max_samples=10):
-    """Print the contents of the dataset, up to max_samples."""
-    print(f"Dataset size: {len(dataset)}")
-    print("Sample format: (inputs, targets)")
-    
-    for i, (inputs, targets) in enumerate(dataset):
-        if i >= max_samples:
-            print(f"... (showing only first {max_samples} samples)")
-            break
-        print(f"Sample {i}:")
-        print(f"  Inputs shape: {inputs.shape}, Inputs: {inputs}")
-        print(f"  Targets shape: {targets.shape}, Targets: {targets}")
-        print()
-
-# 3. 主函數：下載並構建 DataSet
-def main():
-    # 下載數據
-    if os.path.exists(os.path.join("../dataset", "preprocessed_data.csv")):
-        print("數據已存在，跳過下載。")
-    else:
-        data_dir = download_stocknet_dataset()
-        # 數據預處理
-        preprocess_data(data_dir)
-    print("數據下載和預處理完成！")
-
-        # Load and preprocess data
-    train_dataset = load_dataset('train')
-    val_dataset = load_dataset('val')
-    test_dataset = load_dataset('test')
-    
-    print_dataset(train_dataset)
-
-    print(f"Train dataset size: {len(train_dataset)}")
-    print(f"Validation dataset size: {len(val_dataset)}")
-    print(f"Test dataset size: {len(test_dataset)}")
-
-if __name__ == "__main__":
-    main()

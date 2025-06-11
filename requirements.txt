@@ -4,3 +4,5 @@ torch
 tensorboard
 numpy
 tqdm
+scikit-learn
+matplotlib
