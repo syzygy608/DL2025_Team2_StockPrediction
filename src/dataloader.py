@@ -67,7 +67,7 @@ class TimeSeriesDataset:
         group['Date'] = (pd.to_datetime(group['Date']) - pd.to_datetime(first_date)).dt.days  # 將日期轉換為天數
 
         # 確保所有必要的列都存在
-        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20', 'Company Name', 'Company Embedding']
+        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20']
         for col in required_columns:
             if col not in group.columns:
                 raise ValueError(f"Missing required column: {col}")
@@ -85,8 +85,8 @@ class TimeSeriesDataset:
         tensors = []
         targets = []
         for i in range(len(inputs_tensor) - self.look_back):
-            x = inputs_tensor[i:i + self.look_back]  # Shape: [look_back, 19]
-            y = outputs_tensor[i + self.look_back - 1]  # Shape: [1]
+            x = inputs_tensor[i:i + self.look_back]
+            y = outputs_tensor[i + self.look_back - 1]
             tensors.append(x)
             targets.append(y)
         
@@ -119,10 +119,16 @@ class TimeSeriesDataset:
 
         # 紀錄第一天
         first_date = pd.to_datetime(self.data['Date'].min())
+        self.data['Date'] = pd.to_datetime(self.data['Date'])
+        # 確保日期排序
+        self.data = self.data.sort_values('Date').reset_index(drop=True)
         # 與原論文相同，使用時間序分割數據集
         train_data = self.data[self.data['Date'] < val_start]
         val_data = self.data[(self.data['Date'] >= val_start) & (self.data['Date'] < test_start)]
         test_data = self.data[(self.data['Date'] >= test_start)]
+
+        print(f"Train data size: {len(train_data)}, Validation data size: {len(val_data)}, Test data size: {len(test_data)}")
+        
 
         # 生成 Time Series Sequences
         train_sequences = []
