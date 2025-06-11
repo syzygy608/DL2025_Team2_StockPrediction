@@ -136,8 +136,8 @@ def get_args():
     parser = argparse.ArgumentParser(description='Predictor Training')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
     parser.add_argument('--num_epochs', type=int, default=200, help='Number of epochs for training')
-    parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate for optimizer')
-    parser.add_argument('--weight_decay', type=float, default=1e-3, help='Weight decay for optimizer')
+    parser.add_argument('--learning_rate', type=float, default=5e-4, help='Learning rate for optimizer')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay for optimizer')
     parser.add_argument('--model', type=str, default='CNNLSTM', choices=['CNNLSTM', 'GRU'], help='Model type to use for training')
     return parser.parse_args()
 
