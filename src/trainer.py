@@ -85,7 +85,7 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
     # Initialize loss function and optimizer
     criterion = nn.HuberLoss()  # Using Huber loss for robustness to outliers
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
     # Initialize TensorBoard
     writer = SummaryWriter()
 
@@ -94,6 +94,8 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
     best_model_path = os.path.join("model_weights", f"{model_type}_best_model.pth")
 
     # Training loop
+    patience = 10
+    counter = 0
     for epoch in range(num_epochs):
         train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, directional_accuracy)
         val_loss, val_acc = validate_epoch(model, val_loader, criterion, directional_accuracy)
@@ -120,6 +122,12 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
             best_val_loss = val_loss
             torch.save(model.state_dict(), best_model_path)
             print(f"=====Best model saved with val loss: {best_val_loss:.4f}=====")
+            counter = 0  # Reset counter if we improve
+        else:
+            counter += 1
+            if counter >= patience:
+                print(f"Early stopping triggered after {patience} epochs without improvement.")
+                break
 
     writer.close()
     print("Training completed.")
@@ -128,8 +136,8 @@ def get_args():
     parser = argparse.ArgumentParser(description='Predictor Training')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
     parser.add_argument('--num_epochs', type=int, default=200, help='Number of epochs for training')
-    parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate for optimizer')
-    parser.add_argument('--weight_decay', type=float, default=1e-5, help='Weight decay for optimizer')
+    parser.add_argument('--learning_rate', type=float, default=1e-4, help='Learning rate for optimizer')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay for optimizer')
     parser.add_argument('--model', type=str, default='CNNLSTM', choices=['CNNLSTM', 'GRU'], help='Model type to use for training')
     return parser.parse_args()
 

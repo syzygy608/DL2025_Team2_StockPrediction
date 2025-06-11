@@ -51,10 +51,10 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
     if args.model == 'CNNLSTM':
-        model_path = 'model_weights/CCNLSTM_best_model.pth'
+        model_path = '../model_weights/CCNLSTM_best_model.pth'
         model = Predictor()
     elif args.model == 'GRU':
-        model_path = 'model_weights/GRU_best_model.pth'
+        model_path = '../model_weights/GRU_best_model.pth'
         model = GRUPredictor()
     else:
         raise ValueError("Unsupported model type. Choose 'CNNLSTM' or 'GRU'.")
