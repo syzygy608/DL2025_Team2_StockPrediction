@@ -76,7 +76,7 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
     # Initialize loss function and optimizer
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    scheduler = optim.StepLR(optimizer, step_size=10, gamma=0.1)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10)
     # Initialize TensorBoard
     writer = SummaryWriter()
 

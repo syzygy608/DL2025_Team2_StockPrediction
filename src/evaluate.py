@@ -1,19 +1,14 @@
-import torch
-import torch.nn as nn
-
 def compute_accuracy(outputs, targets):
-    """Matthews Correlation Coefficient"""
-    outputs = torch.sigmoid(outputs)  # Apply sigmoid to outputs
-    predictions = (outputs > 0.5).float()  # Convert to binary predictions
-    tp = ((predictions == 1) & (targets == 1)).sum().item()
-    tn = ((predictions == 0) & (targets == 0)).sum().item()
-    fp = ((predictions == 1) & (targets == 0)).sum().item()
-    fn = ((predictions == 0) & (targets == 1)).sum().item()
+    outputs = outputs.sigmoid()  # Apply sigmoid to outputs
+    outputs = outputs.view(-1)
+    targets = targets.view(-1)
 
-    numerator = tp * tn - fp * fn
-    denominator = ((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn)) ** 0.5
-
-    if denominator == 0:
-        return 0.0
-
-    return numerator / denominator
+    TP = ((outputs >= 0.5) & (targets == 1)).sum().item()
+    TN = ((outputs < 0.5) & (targets == 0)).sum().item()
+    FP = ((outputs >= 0.5) & (targets == 0)).sum().item()
+    FN = ((outputs < 0.5) & (targets == 1)).sum().item()
+    total = TP + TN + FP + FN
+    if total == 0:
+        return 0.0  # Avoid division by zero
+    
+    return (TP + TN) / total
