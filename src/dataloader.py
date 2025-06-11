@@ -42,13 +42,15 @@ class TimeSeriesDataset:
         # 確保數據按日期排序
         group = group.sort_values('Date')
 
-        group['Date'] = (group['Date'] - pd.to_datetime(first_date)).dt.days  # 將日期轉換為天數
+        group['Date'] = (pd.to_datetime(group['Date']) - pd.to_datetime(first_date)).dt.days  # 將日期轉換為天數
 
         # 確保所有必要的列都存在
         required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA5', 'EMA20']
         for col in required_columns:
             if col not in group.columns:
                 raise ValueError(f"Missing required column: {col}")
+            
+        group.reset_index(drop=True, inplace=True)
 
         # Prepare input features
         company_embeds_np = np.array(group['Company Embedding'].tolist())
@@ -104,8 +106,7 @@ class TimeSeriesDataset:
         test_start = '2015-10-01'
 
         # 紀錄第一天
-        first_date = self.data['Date'].min()
-
+        first_date = pd.to_datetime(self.data['Date'].min())
         # 與原論文相同，使用時間序分割數據集
         train_data = self.data[self.data['Date'] < val_start]
         val_data = self.data[(self.data['Date'] >= val_start) & (self.data['Date'] < test_start)]
