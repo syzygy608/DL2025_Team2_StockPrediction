@@ -37,18 +37,19 @@ def evaluate_model(model, test_loader, criterion):
     with torch.no_grad():
         for inputs, targets in progress_bar:
             inputs, targets = inputs.to(device), targets.to(device).float()
-            outputs = model(inputs).squeeze()  # 確保輸出形狀為 [batch_size]
+            outputs = model(inputs)
             loss = criterion(outputs, targets)
-
-            actuals.append(targets.cpu().numpy().item())
-            predictions.append(outputs.cpu().numpy().item())
-
-            progress_bar.set_postfix(loss=loss.item())
 
             batch_size = inputs.size(0)
             running_loss += loss.item() * batch_size
             running_acc += directional_accuracy(outputs, targets) * batch_size
             total_samples += batch_size
+
+            # 收集實際值和預測值
+            actuals.extend(targets.cpu().numpy())
+            predictions.extend(outputs.cpu().numpy())
+            # 更新進度條
+            progress_bar.set_postfix(loss=loss.item(), acc=running_acc / total_samples)
 
     avg_loss = running_loss / total_samples
     avg_acc = running_acc / total_samples
