@@ -53,9 +53,9 @@ class TimeSeriesDataset:
 
         # 長短期移動平均和標準差
         group['SMA20'] = group['Adj Close'].rolling(window=20).mean()
-        group['LMA200'] = group['Adj Close'].rolling(window=200).mean()
+        group['LMA100'] = group['Adj Close'].rolling(window=100).mean()
         group['SVA20'] = group['Adj Close'].rolling(window=20).std()
-        group['LVA200'] = group['Adj Close'].rolling(window=200).std()
+        group['LVA100'] = group['Adj Close'].rolling(window=100).std()
 
         # 平滑趨勢
         group['EMA20'] = group['Adj Close'].ewm(span=20, adjust=False).mean()
@@ -67,17 +67,15 @@ class TimeSeriesDataset:
         group['Date'] = (pd.to_datetime(group['Date']) - pd.to_datetime(first_date)).dt.days  # 將日期轉換為天數
 
         # 確保所有必要的列都存在
-        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA20', 'LMA200', 'SVA20', 'LVA200', 'EMA20', 'Company Name', 'Company Embedding']
+        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20', 'Company Name', 'Company Embedding']
         for col in required_columns:
             if col not in group.columns:
                 raise ValueError(f"Missing required column: {col}")
-            
-        group.reset_index(drop=True, inplace=True)
 
         # Prepare input features
         company_embeds_np = np.array(group['Company Embedding'].tolist())
         company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
-        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'SMA20', 'LMA200', 'SVA20', 'LVA200', 'EMA20']].values,
+        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20']].values,
                                      dtype=torch.float32).to(self.device)
         inputs_tensor = torch.cat((company_embeds, other_features), dim=1)
         
@@ -88,7 +86,7 @@ class TimeSeriesDataset:
         targets = []
         for i in range(len(inputs_tensor) - self.look_back):
             x = inputs_tensor[i:i + self.look_back]  # Shape: [look_back, 19]
-            y = outputs_tensor[i + self.look_back - 1]  # Shape: []
+            y = outputs_tensor[i + self.look_back - 1]  # Shape: [1]
             tensors.append(x)
             targets.append(y)
         
@@ -99,7 +97,7 @@ class TimeSeriesDataset:
         # Create vocabulary and embeddings
         vocab = {name: idx for idx, name in enumerate(self.data['Company Name'].unique())}
         vocab_size = len(vocab)
-        embedding_dim = 10
+        embedding_dim = 4
         company_indices = [vocab[name] for name in self.data['Company Name'].values]
         company_indices_tensor = torch.tensor(company_indices, dtype=torch.long).to(self.device)
         embedding_layer = nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim).to(self.device)
@@ -161,14 +159,14 @@ class TimeSeriesDataset:
         test_X = torch.stack(test_sequences) if test_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
         test_y = torch.tensor(test_labels, dtype=torch.float).to(self.device)
 
-        # Normalize numerical features (indices 11 and beyond)
+        # Normalize numerical features (indices 5 and beyond)
         if len(train_X) > 0:
-            min_val, range_val = self.compute_min_max(train_X[:, :, 11:])
-            train_X[:, :, 11:] = self.apply_min_max(train_X[:, :, 11:], min_val, range_val)
+            min_val, range_val = self.compute_min_max(train_X[:, :, 5:])
+            train_X[:, :, 5:] = self.apply_min_max(train_X[:, :, 5:], min_val, range_val)
         if len(val_X) > 0:
-            val_X[:, :, 11:] = self.apply_min_max(val_X[:, :, 11:], min_val, range_val)
+            val_X[:, :, 5:] = self.apply_min_max(val_X[:, :, 5:], min_val, range_val)
         if len(test_X) > 0:
-            test_X[:, :, 11:] = self.apply_min_max(test_X[:, :, 11:], min_val, range_val)
+            test_X[:, :, 5:] = self.apply_min_max(test_X[:, :, 5:], min_val, range_val)
 
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)
