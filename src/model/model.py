@@ -102,7 +102,7 @@ class Predictor(nn.Module):
         return x
     
 class GRUPredictor(nn.Module):
-    def __init__(self, input_size=18, hidden_size=64, num_layers=2, output_size=1, dropout=0.1):
+    def __init__(self, input_size=18, hidden_size=64, num_layers=2, output_size=1, dropout=0.3):
         super(GRUPredictor, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
