@@ -108,27 +108,21 @@ class TimeSeriesDataset:
         
 
     def split_data(self):
-        # 01/01/2014 and 01/08/2015 for training,
-        # 01/08/2015 to 01/10/2015 for validation,
-        # 01/10/2015 to 01/01/2016 for test
-
-        self.create_dataset()  # 生成公司嵌入
-
-        val_start = '2015-08-01'
-        test_start = '2015-10-01'
-
-        # 紀錄第一天
-        first_date = pd.to_datetime(self.data['Date'].min())
-        self.data['Date'] = pd.to_datetime(self.data['Date'])
-        # 確保日期排序
-        self.data = self.data.sort_values('Date').reset_index(drop=True)
-        # 與原論文相同，使用時間序分割數據集
-        train_data = self.data[self.data['Date'] < val_start]
-        val_data = self.data[(self.data['Date'] >= val_start) & (self.data['Date'] < test_start)]
-        test_data = self.data[(self.data['Date'] >= test_start)]
+        
+        """分割數據集為訓練、驗證和測試集"""
+        self.create_dataset()
+        # 確保 'Date' 列存在
+        if 'Date' not in self.data.columns:
+            raise ValueError("Data must contain a 'Date' column.")
+        # 獲取第一個日期
+        first_date = self.data['Date'].min()
+        # 用日期排序後切割數據
+        self.data = self.data.sort_values('Date')
+        train_data, temp_data = train_test_split(self.data, test_size=0.2, shuffle=False)
+        val_data, test_data = train_test_split(temp_data, test_size=0.5, shuffle=False)
 
         print(f"Train data size: {len(train_data)}, Validation data size: {len(val_data)}, Test data size: {len(test_data)}")
-        
+
 
         # 生成 Time Series Sequences
         train_sequences = []
