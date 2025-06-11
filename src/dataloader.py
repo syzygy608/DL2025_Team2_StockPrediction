@@ -160,6 +160,11 @@ class TimeSeriesDataset:
         if len(train_X) > 0:
             min_val, range_val = self.compute_min_max(train_X[:, :, 11:])
             train_X[:, :, 11:] = self.apply_min_max(train_X[:, :, 11:], min_val, range_val)
+
+            # 在 11 個特徵之後的數據上進行 噪聲加強
+            noise = torch.randn_like(train_X[:, :, 11:]) * 0.01  # 添加小噪聲
+            train_X[:, :, 11:] += noise
+
         if len(val_X) > 0:
             val_X[:, :, 11:] = self.apply_min_max(val_X[:, :, 11:], min_val, range_val)
         if len(test_X) > 0:

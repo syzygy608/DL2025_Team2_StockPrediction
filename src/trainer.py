@@ -67,7 +67,7 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
     # Load data
     train_dataset = load_dataset('train')
     val_dataset = load_dataset('val')
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     # Initialize model
