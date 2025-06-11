@@ -83,7 +83,7 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
     print(f"Device: {device}")
     print(f"------------")
     # Initialize loss function and optimizer
-    criterion = nn.HuberLoss()  # Using Huber loss for robustness to outliers
+    criterion = nn.RMSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
     # Initialize TensorBoard
