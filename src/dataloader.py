@@ -81,6 +81,10 @@ def preprocess_data(data_dir):
         if file.endswith(".csv"):
             file_path = os.path.join(data_dir, file)
             df = pd.read_csv(file_path)
+            company_name = file.split('.')[0]  # 取得公司名稱
+            if company_name == "PCLN" or company_name == "BRK-A":
+                print(f"跳過不支援的公司：{company_name}")
+                continue
             df["Company_id"] = idx  # 新增欄位 company_id
             all_data.append(df)
             idx += 1
