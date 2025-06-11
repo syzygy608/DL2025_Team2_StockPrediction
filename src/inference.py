@@ -34,7 +34,7 @@ def evaluate_model(model, test_loader, criterion):
     progress_bar.set_description("Evaluating")
     with torch.no_grad():
         for inputs, targets in progress_bar:
-            inputs, targets = inputs.to(device), targets.to(device).float()
+            inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
             loss = criterion(outputs, targets)
 
