@@ -46,6 +46,8 @@ class TimeSeriesDataset:
             max_val - min_val
         )
         normalized_tensor = (copy_tensor - min_val) / range_val
+        print(f"Min: {min_val}, Max: {max_val}, Range: {range_val}")
+
         return normalized_tensor
     
     def generate_sequences(self, group, first_date):
