@@ -101,7 +101,7 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
         val_loss, val_acc = validate_epoch(model, val_loader, criterion, directional_accuracy)
 
         # Update learning rate
-        scheduler.step(val_loss)
+        scheduler.step()
 
         # Print results
         print(f"Epoch [{epoch+1}/{num_epochs}]")
