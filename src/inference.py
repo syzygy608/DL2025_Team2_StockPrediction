@@ -38,10 +38,6 @@ def evaluate_model(model, test_loader, criterion):
             outputs = model(inputs)
             loss = criterion(outputs, targets)
 
-            print(f"Sample logits: {outputs[:10].cpu().numpy()}")
-            print(f"Sample probs: {torch.sigmoid(outputs[:10]).cpu().numpy()}")
-            print(f"Sample targets: {targets[:10].cpu().numpy()}")
-
             batch_size = inputs.size(0)
             running_loss += loss.item() * batch_size
             running_acc += directional_accuracy(outputs, targets) * batch_size
@@ -49,7 +45,7 @@ def evaluate_model(model, test_loader, criterion):
 
             # 收集實際值和預測值
             actuals.extend(targets.cpu().numpy())
-            predictions.extend(torch.sigmoid(outputs).cpu().numpy())
+            predictions.extend(outputs.cpu().numpy())
             # 更新進度條
             progress_bar.set_postfix(loss=loss.item(), acc=running_acc / total_samples)
 
