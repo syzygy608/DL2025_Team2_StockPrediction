@@ -88,6 +88,8 @@ class TimeSeriesDataset:
         # 01/08/2015 to 01/10/2015 for validation,
         # 01/10/2015 to 01/01/2016 for test
 
+        self.create_dataset()  # 生成公司嵌入
+
         val_start = '2015-08-01'
         test_start = '2015-10-01'
 
