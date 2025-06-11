@@ -10,13 +10,14 @@ import zipfile
 import tqdm
 
 class TimeSeriesDataset:
-    def __init__(self, data, look_back=60):
+    def __init__(self, data, look_back=5):
         self.data = data
         self.look_back = look_back
         self.train_data = None
         self.val_data = None
         self.test_data = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.input_dim = 18  # 18 features: 10 company embeddings + 8 numerical features (Date, Open, Close, High, Low, Volume, SMA5, EMA20)
 
     def min_max_normalization_tensor(self, tensor):
         copy_tensor = tensor.clone()
@@ -31,10 +32,6 @@ class TimeSeriesDataset:
         return normalized_tensor
     
     def generate_sequences(self, group):
-        """為單個公司生成時間序列片段"""
-        # Convert date to time index
-        group['Date'] = pd.to_datetime(group['Date'])
-        group['Date'] = (group['Date'] - group['Date'].min()).dt.total_seconds() / (24 * 3600)
 
         # 新增 SMA5, EMA20 指標
         group['SMA5'] = group['Adj Close'].rolling(window=5).mean()
@@ -42,13 +39,13 @@ class TimeSeriesDataset:
 
         group = group.ffill().bfill()  # 前向填充和後向填充缺失值
         # 確保數據按日期排序
-        group = group.sort_values('Date').reset_index(drop=True)
+        group = group.sort_values('Date')
         # Prepare input features
-        company_embeds_np = np.array(group['Company Embedding'].tolist())  # Shape: [n, 10]
+        company_embeds_np = np.array(group['Company Embedding'].tolist())
         company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
-        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'Adj Close', 'High', 'Low', 'Volume', 'SMA5', 'EMA20']].values, 
-                                     dtype=torch.float32).to(self.device)  # Shape: [n, 9]
-        inputs_tensor = torch.cat((company_embeds, other_features), dim=1)  # Shape: [n, 19]
+        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'SMA5', 'EMA20']].values, 
+                                     dtype=torch.float32).to(self.device)
+        inputs_tensor = torch.cat((company_embeds, other_features), dim=1)
 
         # Generate labels
         outputs = []
@@ -85,50 +82,54 @@ class TimeSeriesDataset:
         embedded_company_names = embedding_layer(company_indices_tensor).cpu().detach().numpy()
         self.data['Company Embedding'] = list(embedded_company_names)
         
-        return vocab  # Return vocab for company grouping
 
-    def split_data(self, train_size=0.8, val_size=0.1, random_state=42):
-        """按公司分割數據"""
-        # Generate embeddings and get vocabulary
-        _ = self.create_dataset()
-        companies = list(self.data['Company Name'].unique())
+    def split_data(self):
+        # 01/01/2014 and 01/08/2015 for training,
+        # 01/08/2015 to 01/10/2015 for validation,
+        # 01/10/2015 to 01/01/2016 for test
+
+        val_start = '2015-08-01'
+        test_start = '2015-10-01'
+
+        # 與原論文相同，使用時間序分割數據集
+        train_data = self.data[self.data['Date'] < val_start]
+        val_data = self.data[(self.data['Date'] >= val_start) & (self.data['Date'] < test_start)]
+        test_data = self.data[(self.data['Date'] >= test_start)]
+
+        # 生成 Time Series Sequences
+        train_sequences = []
+        train_labels = []
+        val_sequences = []
+        val_labels = []
+        test_sequences = []
+        test_labels = []
+
+        # Group by 'Company Name' and generate sequences
+        grouped_train = train_data.groupby('Company Name')
+        for name, group in grouped_train:
+            sequences, labels = self.generate_sequences(group)
+            train_sequences.extend(sequences)
+            train_labels.extend(labels)
         
-        # Split companies into train, val, test
-        train_companies, temp_companies = train_test_split(companies, train_size=train_size, random_state=random_state)
-        val_ratio = val_size / (1 - train_size)  # Adjust for remaining data
-        val_companies, test_companies = train_test_split(temp_companies, train_size=val_ratio, random_state=random_state)
-
-        # Initialize lists for sequences
-        train_tensors, train_targets = [], []
-        val_tensors, val_targets = [], []
-        test_tensors, test_targets = [], []
-
-        # Process each company
-        for name in self.data['Company Name'].unique():
-            group = self.data[self.data['Company Name'] == name].sort_values(['Date'])
-            if len(group) < self.look_back:
-                print(f"Skipping {name}: only {len(group)} rows, need at least {self.look_back}")
-                continue
-            
-            tensors, targets = self.generate_sequences(group)
-            
-            if name in train_companies:
-                train_tensors.extend(tensors)
-                train_targets.extend(targets)
-            elif name in val_companies:
-                val_tensors.extend(tensors)
-                val_targets.extend(targets)
-            elif name in test_companies:
-                test_tensors.extend(tensors)
-                test_targets.extend(targets)
+        grouped_val = val_data.groupby('Company Name')
+        for name, group in grouped_val:
+            sequences, labels = self.generate_sequences(group)
+            val_sequences.extend(sequences)
+            val_labels.extend(labels)
+        
+        grouped_test = test_data.groupby('Company Name')
+        for name, group in grouped_test:
+            sequences, labels = self.generate_sequences(group)
+            test_sequences.extend(sequences)
+            test_labels.extend(labels)
 
         # Convert to tensors
-        train_X = torch.stack(train_tensors) if train_tensors else torch.empty(0, self.look_back, 17, device=self.device)
-        train_y = torch.stack(train_targets) if train_targets else torch.empty(0, device=self.device)
-        val_X = torch.stack(val_tensors) if val_tensors else torch.empty(0, self.look_back, 17, device=self.device)
-        val_y = torch.stack(val_targets) if val_targets else torch.empty(0, device=self.device)
-        test_X = torch.stack(test_tensors) if test_tensors else torch.empty(0, self.look_back, 17, device=self.device)
-        test_y = torch.stack(test_targets) if test_targets else torch.empty(0, device=self.device)
+        train_X = torch.stack(train_sequences) if train_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
+        train_y = torch.tensor(train_labels, dtype=torch.float).to(self.device)
+        val_X = torch.stack(val_sequences) if val_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
+        val_y = torch.tensor(val_labels, dtype=torch.float).to(self.device)
+        test_X = torch.stack(test_sequences) if test_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
+        test_y = torch.tensor(test_labels, dtype=torch.float).to(self.device)
 
         # Normalize numerical features (indices 11 and beyond)
         if len(train_X) > 0:

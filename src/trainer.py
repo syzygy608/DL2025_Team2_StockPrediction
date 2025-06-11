@@ -75,9 +75,8 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
         
     # Initialize loss function and optimizer
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, threshold=1e-4)
-
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    scheduler = optim.StepLR(optimizer, step_size=10, gamma=0.1)
     # Initialize TensorBoard
     writer = SummaryWriter()
 
@@ -115,9 +114,9 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
 
 def get_args():
     parser = argparse.ArgumentParser(description='CNN-LSTM Predictor Training')
-    parser.add_argument('--batch_size', type=int, default=128, help='Batch size for training')
-    parser.add_argument('--num_epochs', type=int, default=400, help='Number of epochs for training')
-    parser.add_argument('--learning_rate', type=float, default=1e-2, help='Learning rate for optimizer')
+    parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
+    parser.add_argument('--num_epochs', type=int, default=200, help='Number of epochs for training')
+    parser.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate for optimizer')
     parser.add_argument('--weight_decay', type=float, default=1e-5, help='Weight decay for optimizer')
     return parser.parse_args()
 
