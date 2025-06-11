@@ -35,7 +35,6 @@ class TimeSeriesDataset:
         """應用 Min-Max Normalization，使用給定的 min 和 range"""
         copy_tensor = tensor.clone()
         normalized_tensor = (copy_tensor - min_val) / range_val
-        print(f"Min: {min_val}, Max: {min_val + range_val}, Range: {range_val}")
         return normalized_tensor
 
     def generate_sequences(self, group, first_date):
@@ -246,6 +245,8 @@ def preprocess_data(data_dir):
             file_path = os.path.join(data_dir, file)
             df = pd.read_csv(file_path)
             df["Company Name"] = file.split(".")[0]  # 使用檔名作為公司名稱
+            if df["Company Name"] == "PCLN" or "BRK-A":
+                continue  # 跳過 PCLN 和 BRK-A 公司
             all_data.append(df)
     
     combined_data = pd.concat(all_data, ignore_index=True)
