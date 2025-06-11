@@ -10,7 +10,7 @@ import zipfile
 import tqdm
 
 class TimeSeriesDataset:
-    def __init__(self, data, look_back=60):
+    def __init__(self, data, look_back=30):
         self.data = data
         self.look_back = look_back
         self.train_data = None
