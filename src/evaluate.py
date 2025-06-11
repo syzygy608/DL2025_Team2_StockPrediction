@@ -1,29 +1,33 @@
 import torch
-import torch.nn as nn
-
-class RMSLELoss(nn.Module):
-    def __init__(self):
-        super(RMSLELoss, self).__init__()
-        self.mse = nn.MSELoss()
-    def forward(self, y_pred, y_true):
-        # Apply log transformation and calculate MSE
-        y_pred = torch.log1p(y_pred)
-        y_true = torch.log1p(y_true)
-        return torch.sqrt(self.mse(y_pred, y_true))
-    
-def relative_error_accuracy(y_pred, y_true, eps=1e-8):
+def directional_accuracy(y_true, y_pred, ignore_zero_diff=True):
     """
-    計算相對誤差準確度
+    計算 Directional Accuracy，支持忽略價格不變的情況。
     
-    Args:
-        y_pred: 預測值 (batch_size, 1)
-        y_true: 真實值 (batch_size, 1)
-        eps: 避免除零的小值
+    參數：
+        y_true (torch.Tensor): 實際 Adjusted Close Price
+        y_pred (torch.Tensor): 預測 Adjusted Close Price
+        ignore_zero_diff (bool): 是否忽略價格不變的情況
     
-    Returns:
-        accuracy: 相對誤差
+    返回：
+        float: Directional Accuracy 值
     """
-    relative_error = torch.abs(y_pred - y_true) / (y_true + eps)
-    mre = relative_error.mean()
-    accuracy = 1 - mre
-    return accuracy
+    
+    true_diff = y_true[1:] - y_true[:-1]
+    pred_diff = y_pred[1:] - y_pred[:-1]
+    
+    true_sign = torch.sign(true_diff)
+    pred_sign = torch.sign(pred_diff)
+    
+    if ignore_zero_diff:
+        # 僅考慮實際價格有變動的情況（true_diff != 0）
+        non_zero_mask = true_diff != 0
+        true_sign = true_sign[non_zero_mask]
+        pred_sign = pred_sign[non_zero_mask]
+        
+        if len(true_sign) == 0:  # 防止所有差值為 0
+            return 0.0
+    
+    correct_directions = (true_sign == pred_sign).float()
+    directional_acc = torch.mean(correct_directions)
+    
+    return directional_acc.item()
