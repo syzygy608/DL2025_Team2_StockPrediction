@@ -35,7 +35,7 @@ def evaluate_model(model, test_loader, criterion):
     with torch.no_grad():
         for inputs, targets in progress_bar:
             inputs, targets = inputs.to(device), targets.to(device).float()
-            outputs = model(inputs).squeeze()  # 確保輸出形狀為 [batch_size]
+            outputs = model(inputs).squeeze(-1)  # 確保輸出形狀為 [batch_size]
             loss = criterion(outputs, targets)
 
             batch_size = inputs.size(0)
