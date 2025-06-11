@@ -33,23 +33,11 @@ class TimeSeriesDataset:
 
     def apply_min_max(self, tensor, min_val, range_val):
         """應用 Min-Max Normalization，使用給定的 min 和 range"""
-        normalized_tensor = (tensor - min_val) / range_val
-        return normalized_tensor
-
-    def min_max_normalization_tensor(self, tensor):
         copy_tensor = tensor.clone()
-        min_val = copy_tensor.min(dim=0, keepdim=True).values  # Shape: [1, n_features]
-        max_val = copy_tensor.max(dim=0, keepdim=True).values  # Shape: [1, n_features]
-        range_val = torch.where(
-            max_val - min_val == 0,
-            torch.tensor(1.0, device=copy_tensor.device),  # Use input tensor's device
-            max_val - min_val
-        )
         normalized_tensor = (copy_tensor - min_val) / range_val
-        print(f"Min: {min_val}, Max: {max_val}, Range: {range_val}")
-
+        print(f"Min: {min_val}, Max: {min_val + range_val}, Range: {range_val}")
         return normalized_tensor
-    
+
     def generate_sequences(self, group, first_date):
         """生成時間序列序列和標籤"""
 
