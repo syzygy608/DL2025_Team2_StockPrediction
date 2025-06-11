@@ -61,11 +61,11 @@ class TimeSeriesDataset:
         # Prepare input features
         company_embeds_np = np.array(group['Company Embedding'].tolist())
         company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
-        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'High', 'Low', 'Volume']].values,
+        other_features = torch.tensor(group[['Date', 'Open', 'Adj Close', 'High', 'Low', 'Volume']].values,
                                      dtype=torch.float32).to(self.device)
         inputs_tensor = torch.cat((company_embeds, other_features), dim=1)
         
-        outputs_tensor = torch.tensor(group['Adj Close'].values, dtype=torch.float32).to(self.device)
+        outputs_tensor = torch.tensor(group['Close'].values, dtype=torch.float32).to(self.device)
 
         # Create time-series sequences
         tensors = []
