@@ -119,7 +119,7 @@ class TimeSeriesDataset:
         # 確保日期排序
         self.data = self.data.sort_values('Date').reset_index(drop=True)
         # 分割數據集
-        self.data = self.data[(self.data['Date'] >= '2012-09-04') & (self.data['Date'] <= '2017-08-10')]
+        self.data = self.data[(self.data['Date'] >= '2012-09-04') & (self.data['Date'] <= '2017-08-09')]
         train_data, test_data = train_test_split(self.data, test_size=0.2, shuffle=False)
         val_data, test_data = train_test_split(test_data, test_size=0.5, shuffle=False)
 

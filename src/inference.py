@@ -32,7 +32,8 @@ def evaluate_model(model, test_loader, criterion):
     plt.ylabel('Value')
     actuals = []
     predictions = []
-    progress_bar = tqdm.tqdm(total=len(test_loader), desc="Evaluating", unit="batch")
+    progress_bar = tqdm.tqdm(test_loader, desc="Evaluating", unit="batch", ncols=100, leave=False)
+    progress_bar.set_description("Evaluating")
     with torch.no_grad():
         for inputs, targets in progress_bar:
             inputs, targets = inputs.to(device), targets.to(device).float()
