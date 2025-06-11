@@ -40,8 +40,8 @@ def evaluate_model(model, test_loader, criterion):
             outputs = model(inputs).squeeze()  # 確保輸出形狀為 [batch_size]
             loss = criterion(outputs, targets)
 
-            actuals.extend(targets.cpu().numpy())
-            predictions.extend(outputs.cpu().numpy())
+            actuals.append(targets.cpu().numpy().item())
+            predictions.append(outputs.cpu().numpy().item())
 
             progress_bar.set_postfix(loss=loss.item())
 
