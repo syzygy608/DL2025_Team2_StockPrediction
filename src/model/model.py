@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 class Predictor(nn.Module):
-    def __init__(self, input_dim=15, conv_filters=128, kernel_size=3, lstm_hidden_dim=128, dropout=0.2, num_layers=2):
+    def __init__(self, input_dim=15, conv_filters=128, kernel_size=3, lstm_hidden_dim=128, dropout=0.3, num_layers=2):
         """
         Enhanced CNN + LSTM model for stock trend prediction
         Args:
@@ -99,14 +99,10 @@ class GRUPredictor(nn.Module):
         self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
         # 全連接層
         self.fc = nn.Linear(hidden_size, output_size)
-        # ReLU 激活函數
-        self.relu = nn.ReLU()
 
     def forward(self, x):
         # GRU 前向傳播
         out, _ = self.gru(x)
         # 取最後一個時間步的輸出
         out = self.fc(out[:, -1, :])
-        # 使用 ReLU 激活函數
-        out = self.relu(out)
         return out

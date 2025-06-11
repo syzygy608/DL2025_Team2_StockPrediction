@@ -40,13 +40,10 @@ class TimeSeriesDataset:
     def generate_sequences(self, group, first_date):
         """生成時間序列序列和標籤"""
 
-        # 長短期移動平均和標準差
         group['SMA20'] = group['Adj Close'].rolling(window=20).mean()
-        group['LMA100'] = group['Adj Close'].rolling(window=100).mean()
+        group['LMA50'] = group['Adj Close'].rolling(window=50).mean()
         group['SVA20'] = group['Adj Close'].rolling(window=20).std()
-        group['LVA100'] = group['Adj Close'].rolling(window=100).std()
-
-        # 平滑趨勢
+        group['LVA50'] = group['Adj Close'].rolling(window=50).std()
         group['EMA20'] = group['Adj Close'].ewm(span=20, adjust=False).mean()
 
         group = group.ffill().bfill()  # 前向填充和後向填充缺失值
@@ -157,14 +154,19 @@ class TimeSeriesDataset:
         test_X = torch.stack(test_sequences) if test_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
         test_y = torch.tensor(test_labels, dtype=torch.float).to(self.device)
 
-        # Normalize numerical features (indices 5 and beyond)
         if len(train_X) > 0:
+            min_embeds, range_embeds = self.compute_min_max(train_X[:, :, :4])
+            train_X[:, :, :4] = self.apply_min_max(train_X[:, :, :4], min_embeds, range_embeds)
+            if len(val_X) > 0:
+                val_X[:, :, :4] = self.apply_min_max(val_X[:, :, :4], min_embeds, range_embeds)
+            if len(test_X) > 0:
+                test_X[:, :, :4] = self.apply_min_max(test_X[:, :, :4], min_embeds, range_embeds)
             min_val, range_val = self.compute_min_max(train_X[:, :, 5:])
             train_X[:, :, 5:] = self.apply_min_max(train_X[:, :, 5:], min_val, range_val)
-        if len(val_X) > 0:
-            val_X[:, :, 5:] = self.apply_min_max(val_X[:, :, 5:], min_val, range_val)
-        if len(test_X) > 0:
-            test_X[:, :, 5:] = self.apply_min_max(test_X[:, :, 5:], min_val, range_val)
+            if len(val_X) > 0:
+                val_X[:, :, 5:] = self.apply_min_max(val_X[:, :, 5:], min_val, range_val)
+            if len(test_X) > 0:
+                test_X[:, :, 5:] = self.apply_min_max(test_X[:, :, 5:], min_val, range_val)
 
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)

@@ -25,7 +25,6 @@ def evaluate_model(model, test_loader, criterion):
 
     # 繪製 actual 和 predicted 的圖形
     plt.figure(figsize=(10, 5))
-    plt.ion()  # 開啟互動模式
     plt.title('Actual vs Predicted')
     plt.xlabel('Sample Index')
     plt.ylabel('Value')
@@ -46,7 +45,7 @@ def evaluate_model(model, test_loader, criterion):
 
             # 收集實際值和預測值
             actuals.extend(targets.cpu().numpy())
-            predictions.extend(outputs.cpu().numpy())
+            predictions.extend(torch.sigmoid(outputs).cpu().numpy())
             # 更新進度條
             progress_bar.set_postfix(loss=loss.item(), acc=running_acc / total_samples)
 
@@ -58,7 +57,6 @@ def evaluate_model(model, test_loader, criterion):
     plt.legend()
     plt.draw()
     plt.pause(0.001)  # 暫停以更新圖形
-    plt.ioff()  # 關閉互動模式
     plt.savefig('actual_vs_predicted.png')  # 儲存圖形
     plt.close()
     print(f"Evaluation completed: Avg Loss: {avg_loss:.4f}, Avg Accuracy: {avg_acc:.4f}")
