@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 class Predictor(nn.Module):
-    def __init__(self, input_dim=18, conv_filters=128, kernel_size=3, lstm_hidden_dim=256, dropout=0.3, num_layers=2):
+    def __init__(self, input_dim=18, conv_filters=64, kernel_size=3, lstm_hidden_dim=128, dropout=0.3, num_layers=2):
         """
         Enhanced CNN + LSTM model for stock trend prediction
         Args:
@@ -14,21 +14,14 @@ class Predictor(nn.Module):
         """
         super(Predictor, self).__init__()
         
-        # CNN layers: Two 1D convolutional layers for better feature extraction
-        self.conv1 = nn.Conv1d(
+        # CNN layers: 1D convolutional layers for better feature extraction
+        self.conv = nn.Conv1d(
             in_channels=input_dim,
             out_channels=conv_filters,
             kernel_size=kernel_size,
             padding=kernel_size//2
         )
-        self.bn1 = nn.BatchNorm1d(conv_filters)  # Batch normalization
-        self.conv2 = nn.Conv1d(
-            in_channels=conv_filters,
-            out_channels=conv_filters,
-            kernel_size=kernel_size,
-            padding=kernel_size//2
-        )
-        self.bn2 = nn.BatchNorm1d(conv_filters)
+        self.bn = nn.BatchNorm1d(conv_filters)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
         
@@ -78,12 +71,8 @@ class Predictor(nn.Module):
         x = x.permute(0, 2, 1)
         
         # CNN layers
-        x = self.conv1(x)  # [batch_size, conv_filters, look_back]
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.conv2(x)  # [batch_size, conv_filters, look_back]
-        x = self.bn2(x)
+        x = self.conv(x)  # [batch_size, conv_filters, look_back]
+        x = self.bn(x)
         x = self.relu(x)
         x = self.dropout(x)
         

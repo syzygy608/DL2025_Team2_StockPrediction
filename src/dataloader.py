@@ -18,6 +18,23 @@ class TimeSeriesDataset:
         self.test_data = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.input_dim = 18  # 18 features: 10 company embeddings + 8 numerical features (Date, Open, Close, High, Low, Volume, SMA5, EMA20)
+        self.scalars = None
+
+    def compute_min_max(self, tensor):
+        """計算 Min-Max Normalization 的參數（min 和 max）"""
+        min_val = tensor.min(dim=0, keepdim=True).values  # Shape: [1, n_features]
+        max_val = tensor.max(dim=0, keepdim=True).values  # Shape: [1, n_features]
+        range_val = torch.where(
+            max_val - min_val == 0,
+            torch.tensor(1.0, device=tensor.device),
+            max_val - min_val
+        )
+        return min_val, range_val
+
+    def apply_min_max(self, tensor, min_val, range_val):
+        """應用 Min-Max Normalization，使用給定的 min 和 range"""
+        normalized_tensor = (tensor - min_val) / range_val
+        return normalized_tensor
 
     def min_max_normalization_tensor(self, tensor):
         copy_tensor = tensor.clone()
@@ -141,11 +158,12 @@ class TimeSeriesDataset:
 
         # Normalize numerical features (indices 11 and beyond)
         if len(train_X) > 0:
-            train_X[:, :, 11:] = self.min_max_normalization_tensor(train_X[:, :, 11:])
+            min_val, range_val = self.compute_min_max(train_X[:, :, 11:])
+            train_X[:, :, 11:] = self.apply_min_max(train_X[:, :, 11:], min_val, range_val)
         if len(val_X) > 0:
-            val_X[:, :, 11:] = self.min_max_normalization_tensor(val_X[:, :, 11:])
+            val_X[:, :, 11:] = self.apply_min_max(val_X[:, :, 11:], min_val, range_val)
         if len(test_X) > 0:
-            test_X[:, :, 11:] = self.min_max_normalization_tensor(test_X[:, :, 11:])
+            test_X[:, :, 11:] = self.apply_min_max(test_X[:, :, 11:], min_val, range_val)
 
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)
