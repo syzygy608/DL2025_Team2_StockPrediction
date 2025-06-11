@@ -58,10 +58,8 @@ class TimeSeriesDataset:
         other_features = torch.tensor(group[['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'SMA5', 'EMA20']].values, 
                                      dtype=torch.float32).to(self.device)
         inputs_tensor = torch.cat((company_embeds, other_features), dim=1)
-
-        outputs = group['Adj Close'].values().astype(np.float32)
         
-        outputs_tensor = torch.tensor(outputs, dtype=torch.float32).to(self.device)
+        outputs_tensor = torch.tensor(group['Adj Close'].values, dtype=torch.float32).to(self.device)
 
         # Create time-series sequences
         tensors = []
