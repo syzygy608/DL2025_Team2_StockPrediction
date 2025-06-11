@@ -1,11 +1,11 @@
 import torch.nn as nn
 
 class Predictor(nn.Module):
-    def __init__(self, input_dim=18, conv_filters=128, kernel_size=3, lstm_hidden_dim=128, dropout=0.2, num_layers=2):
+    def __init__(self, input_dim=21, conv_filters=128, kernel_size=3, lstm_hidden_dim=128, dropout=0.2, num_layers=2):
         """
         Enhanced CNN + LSTM model for stock trend prediction
         Args:
-            input_dim (int): Input feature dimension (embedding_dim + 7 = 10 + 7)
+            input_dim (int): Input feature dimension
             conv_filters (int): Number of convolutional filters
             kernel_size (int): Convolutional kernel size
             lstm_hidden_dim (int): LSTM hidden dimension
@@ -91,7 +91,7 @@ class Predictor(nn.Module):
         return x
     
 class GRUPredictor(nn.Module):
-    def __init__(self, input_size=18, hidden_size=64, num_layers=2, output_size=1, dropout=0.3):
+    def __init__(self, input_size=21, hidden_size=64, num_layers=2, output_size=1, dropout=0.3):
         super(GRUPredictor, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
