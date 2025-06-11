@@ -60,6 +60,9 @@ def evaluate_model(model, test_loader, criterion):
     plt.savefig('actual_vs_predicted.png')  # 儲存圖形
     plt.close()
     print(f"Evaluation completed: Avg Loss: {avg_loss:.4f}, Avg Accuracy: {avg_acc:.4f}")
+    print(f"Min value of predictions: {min(predictions):.4f}, Max value of predictions: {max(predictions):.4f}")
+    print(f"Min value of actuals: {min(actuals):.4f}, Max value of actuals: {max(actuals):.4f}")
+    print(f"Total samples evaluated: {total_samples}")
     return avg_loss, avg_acc
 
 def main():
