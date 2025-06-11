@@ -10,7 +10,7 @@ import zipfile
 import tqdm
 
 class TimeSeriesDataset:
-    def __init__(self, data, look_back=10):
+    def __init__(self, data, look_back=60):
         self.data = data
         self.look_back = look_back
         self.train_data = None
@@ -18,7 +18,7 @@ class TimeSeriesDataset:
         self.test_data = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.input_dim = 15
-        self.scalars = None
+
 
     def compute_min_max(self, tensor):
         """計算 Min-Max Normalization 的參數（min 和 max）"""
@@ -108,26 +108,20 @@ class TimeSeriesDataset:
         
 
     def split_data(self):
-        # 01/01/2014 and 01/08/2015 for training,
-        # 01/08/2015 to 01/10/2015 for validation,
-        # 01/10/2015 to 01/01/2016 for test
+        # 2012-9-4 to 2017-8-9
+        # 共 1800 天，切分成 8:1:1 的比例
 
         self.create_dataset()  # 生成公司嵌入
-
-        training_start = '2014-01-01'
-        val_start = '2015-08-01'
-        test_start = '2015-10-01'
-        test_end = '2016-01-01'
 
         # 紀錄第一天
         first_date = pd.to_datetime(self.data['Date'].min())
         self.data['Date'] = pd.to_datetime(self.data['Date'])
         # 確保日期排序
         self.data = self.data.sort_values('Date').reset_index(drop=True)
-        # 與原論文相同，使用時間序分割數據集
-        train_data = self.data[(self.data['Date'] < val_start) & (self.data['Date'] >= training_start)]
-        val_data = self.data[(self.data['Date'] >= val_start) & (self.data['Date'] < test_start)]
-        test_data = self.data[(self.data['Date'] >= test_start) & (self.data['Date'] < test_end)]
+        # 分割數據集
+        self.data = self.data[(self.data['Date'] >= '2012-09-04') & (self.data['Date'] <= '2017-08-09')]
+        train_data, test_data = train_test_split(self.data, test_size=0.2, shuffle=False)
+        val_data, test_data = train_test_split(test_data, test_size=0.5, shuffle=False)
 
         print(f"Train data size: {len(train_data)}, Validation data size: {len(val_data)}, Test data size: {len(test_data)}")
         
