@@ -87,7 +87,7 @@ class Predictor(nn.Module):
         x = self.fc1(x)
         x = self.relu(x)
         x = self.dropout(x)
-        x = self.fc2(x).squeeze(-1)  # [batch_size]
+        x = self.fc2(x)
         return x
     
 class GRUPredictor(nn.Module):
