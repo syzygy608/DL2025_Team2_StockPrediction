@@ -125,7 +125,7 @@ class TimeSeriesDataset:
         # 確保日期排序
         self.data = self.data.sort_values('Date').reset_index(drop=True)
         # 與原論文相同，使用時間序分割數據集
-        train_data = self.data[self.data['Date'] < val_start & (self.data['Date'] >= training_start)]
+        train_data = self.data[(self.data['Date'] < val_start) & (self.data['Date'] >= training_start)]
         val_data = self.data[(self.data['Date'] >= val_start) & (self.data['Date'] < test_start)]
         test_data = self.data[(self.data['Date'] >= test_start) & (self.data['Date'] < test_end)]
 
