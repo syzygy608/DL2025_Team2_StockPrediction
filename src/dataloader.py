@@ -10,7 +10,7 @@ import zipfile
 import tqdm
 
 class TimeSeriesDataset:
-    def __init__(self, data, look_back=60):
+    def __init__(self, data, look_back=20):
         self.data = data
         self.look_back = look_back
         self.train_data = None
@@ -41,9 +41,6 @@ class TimeSeriesDataset:
         """生成時間序列序列和標籤"""
 
         group['SMA20'] = group['Adj Close'].rolling(window=20).mean()
-        group['LMA50'] = group['Adj Close'].rolling(window=50).mean()
-        group['SVA20'] = group['Adj Close'].rolling(window=20).std()
-        group['LVA50'] = group['Adj Close'].rolling(window=50).std()
         group['EMA20'] = group['Adj Close'].ewm(span=20, adjust=False).mean()
 
         group = group.ffill().bfill()  # 前向填充和後向填充缺失值
@@ -53,7 +50,7 @@ class TimeSeriesDataset:
         group['Date'] = (pd.to_datetime(group['Date']) - pd.to_datetime(first_date)).dt.days  # 將日期轉換為天數
 
         # 確保所有必要的列都存在
-        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20']
+        required_columns = ['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'Adj Close']
         for col in required_columns:
             if col not in group.columns:
                 raise ValueError(f"Missing required column: {col}")
@@ -61,18 +58,11 @@ class TimeSeriesDataset:
         # Prepare input features
         company_embeds_np = np.array(group['Company Embedding'].tolist())
         company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
-        other_features = torch.tensor(group[['Date', 'Open', 'Close', 'High', 'Low', 'Volume', 'SMA20', 'LMA100', 'SVA20', 'LVA100', 'EMA20']].values,
+        other_features = torch.tensor(group[['Date', 'Open', 'Adj Close', 'High', 'Low', 'Volume', 'SMA20', 'EMA20']].values,
                                      dtype=torch.float32).to(self.device)
         inputs_tensor = torch.cat((company_embeds, other_features), dim=1)
         
-        # Prepare output features
-        output = []
-        for i in range(len(group)):
-            if i == 0:
-                output.append(0.0)
-            else:
-                output.append(1.0 if group['Adj Close'].iloc[i] > group['Adj Close'].iloc[i - 1] else 0.0)
-        outputs_tensor = torch.tensor(output, dtype=torch.float32).to(self.device)
+        outputs_tensor = torch.tensor(group['Close'].values, dtype=torch.float32).to(self.device)
 
         # Create time-series sequences
         tensors = []
@@ -154,24 +144,16 @@ class TimeSeriesDataset:
         test_X = torch.stack(test_sequences) if test_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
         test_y = torch.tensor(test_labels, dtype=torch.float).to(self.device)
 
-        if len(train_X) > 0:
-            min_embeds, range_embeds = self.compute_min_max(train_X[:, :, :4])
-            train_X[:, :, :4] = self.apply_min_max(train_X[:, :, :4], min_embeds, range_embeds)
-            if len(val_X) > 0:
-                val_X[:, :, :4] = self.apply_min_max(val_X[:, :, :4], min_embeds, range_embeds)
-            if len(test_X) > 0:
-                test_X[:, :, :4] = self.apply_min_max(test_X[:, :, :4], min_embeds, range_embeds)
-            min_val, range_val = self.compute_min_max(train_X[:, :, 5:])
-            train_X[:, :, 5:] = self.apply_min_max(train_X[:, :, 5:], min_val, range_val)
-            if len(val_X) > 0:
-                val_X[:, :, 5:] = self.apply_min_max(val_X[:, :, 5:], min_val, range_val)
-            if len(test_X) > 0:
-                test_X[:, :, 5:] = self.apply_min_max(test_X[:, :, 5:], min_val, range_val)
+        # min-max normalization
+        train_min, train_range = self.compute_min_max(train_X)
+        train_X = self.apply_min_max(train_X, train_min, train_range)
+        val_X = self.apply_min_max(val_X, train_min, train_range)
+        test_X = self.apply_min_max(test_X, train_min, train_range)
+        
 
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)
         self.test_data = (test_X, test_y)
-
     def __getitem__(self, index):
         return self.data.iloc[index]
     
@@ -252,7 +234,7 @@ def preprocess_data(data_dir):
             file_path = os.path.join(data_dir, file)
             df = pd.read_csv(file_path)
             company_name = file.split(".")[0]  # 使用檔名作為公司名稱
-            if company_name  == "PCLN" or company_name == "BRK-A":
+            if company_name  == "PCLN" or company_name == "BRK-A" or company_name == "GOOG" or company_name == "AMZN":
                 continue  # 跳過 PCLN 和 BRK-A 公司"
             df["Company Name"] = company_name
             all_data.append(df)

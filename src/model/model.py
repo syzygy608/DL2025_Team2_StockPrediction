@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 class Predictor(nn.Module):
-    def __init__(self, input_dim=15, conv_filters=128, kernel_size=3, lstm_hidden_dim=128, dropout=0.3, num_layers=2):
+    def __init__(self, input_dim=12, conv_filters=128, kernel_size=3, lstm_hidden_dim=128, dropout=0.3, num_layers=2):
         """
         Enhanced CNN + LSTM model for stock trend prediction
         Args:
@@ -15,18 +15,28 @@ class Predictor(nn.Module):
         super(Predictor, self).__init__()
         
         # CNN layers: 1D convolutional layers for better feature extraction
-        self.conv = nn.Conv1d(
+        self.conv1 = nn.Conv1d(
             in_channels=input_dim,
             out_channels=conv_filters,
             kernel_size=kernel_size,
             padding=kernel_size//2
         )
-        self.bn = nn.BatchNorm1d(conv_filters)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(dropout)
+        self.bn1 = nn.BatchNorm1d(conv_filters)
+        self.relu1 = nn.ReLU()
+        self.dropout1 = nn.Dropout(dropout)
+
+        self.conv2 = nn.Conv1d(
+            in_channels=conv_filters,
+            out_channels=conv_filters,
+            kernel_size=kernel_size,
+            padding=kernel_size//2
+        )
+        self.bn2 = nn.BatchNorm1d(conv_filters)
+        self.relu2 = nn.ReLU()
+        self.dropout2 = nn.Dropout(dropout)
         
         # LSTM layer: Multi-layer for better sequence modeling
-        self.lstm = nn.LSTM(
+        self.lstm1 = nn.LSTM(
             input_size=conv_filters,
             hidden_size=lstm_hidden_dim,
             num_layers=num_layers,
@@ -34,6 +44,15 @@ class Predictor(nn.Module):
             dropout=dropout if num_layers > 1 else 0
         )
         
+        self.lstm2 = nn.LSTM(
+            input_size=lstm_hidden_dim,
+            hidden_size=lstm_hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0
+        )
+
+
         # Fully connected layers: Deeper output mapping
         self.fc1 = nn.Linear(lstm_hidden_dim, lstm_hidden_dim // 2)
         self.fc2 = nn.Linear(lstm_hidden_dim // 2, 1)
@@ -71,27 +90,29 @@ class Predictor(nn.Module):
         x = x.permute(0, 2, 1)
         
         # CNN layers
-        x = self.conv(x)  # [batch_size, conv_filters, look_back]
-        x = self.bn(x)
-        x = self.relu(x)
-        x = self.dropout(x)
+        x = self.conv1(x)  # [batch_size, conv_filters, look_back]
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.dropout1(x)
         
-        # Transpose for LSTM: [batch_size, look_back, conv_filters]
+        x = self.conv2(x)  # [batch_size, conv_filters, look_back]
+        x = self.bn2(x)
+        x = self.relu2(x)
+        x = self.dropout2(x)
+
+        # LSTM layers
         x = x.permute(0, 2, 1)
-        
-        # LSTM layer
-        _, (hn, _) = self.lstm(x)  # hn: [num_layers, batch_size, lstm_hidden_dim]
-        x = hn[-1]  # Last layer's hidden state: [batch_size, lstm_hidden_dim]
-        
+        x, _ = self.lstm1(x)
+        x, _ = self.lstm2(x)
+        x = x[:, -1, :]
         # Fully connected layers
         x = self.fc1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.fc2(x).squeeze(-1)  # [batch_size]
+        x = self.relu1(x)
+        x = self.fc2(x)
         return x
     
 class GRUPredictor(nn.Module):
-    def __init__(self, input_size=15, hidden_size=64, num_layers=2, output_size=1, dropout=0.3):
+    def __init__(self, input_size=12, hidden_size=64, num_layers=2, output_size=1, dropout=0.3):
         super(GRUPredictor, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -99,10 +120,12 @@ class GRUPredictor(nn.Module):
         self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
         # 全連接層
         self.fc = nn.Linear(hidden_size, output_size)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
         # GRU 前向傳播
         out, _ = self.gru(x)
         # 取最後一個時間步的輸出
         out = self.fc(out[:, -1, :])
+        out = self.relu(out)
         return out
