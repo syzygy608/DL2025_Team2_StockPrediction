@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 class Predictor(nn.Module):
-    def __init__(self, input_dim=12, conv_filters=32, kernel_size=3, lstm_hidden_dim=128, dropout=0.3, num_layers=2):
+    def __init__(self, input_dim=12, conv_filters=32, kernel_size=3, lstm_hidden_dim=64, dropout=0.3, num_layers=2):
         """
         Enhanced CNN + LSTM model for stock trend prediction
         Args:
@@ -108,6 +108,7 @@ class Predictor(nn.Module):
         # Fully connected layers
         x = self.fc1(x)
         x = self.relu1(x)
+        x = self.dropout1(x)
         x = self.fc2(x)
         return x
     
