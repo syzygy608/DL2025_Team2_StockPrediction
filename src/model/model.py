@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Predictor(nn.Module):
-    def __init__(self, input_size=18, hidden_size=64, num_layers=8, output_size=1, dropout=0.3):
+    def __init__(self, input_size=18, hidden_size=32, num_layers=2, output_size=1, dropout=0.3):
         super(Predictor, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
