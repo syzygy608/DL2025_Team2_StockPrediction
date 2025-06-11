@@ -104,8 +104,11 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
         # Print results
         print(f"Epoch [{epoch+1}/{num_epochs}]")
         print(f"Train Directional Acc: {train_acc:.4f}")
+        print(f"Train Loss: {train_loss:.4f}")
         print(f"Val Directional Acc: {val_acc:.4f}")
+        print(f"Val Loss: {val_loss:.4f}")
         print(f"Current Learning Rate: {optimizer.param_groups[0]['lr']:.6f}")
+        print(f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
 
         # Log to TensorBoard
         writer.add_scalars('Loss', {'train': train_loss, 'val': val_loss}, epoch)
