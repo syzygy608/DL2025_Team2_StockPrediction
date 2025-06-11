@@ -70,6 +70,10 @@ def train_model(batch_size, num_epochs, learning_rate, weight_decay):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
+    # In trainer.py, after loading train_dataset
+    train_labels = train_dataset.tensors[1]
+    print(f"Train label distribution: {torch.bincount(train_labels.int())}")
+
     # Initialize model
     model = Predictor().to(device)
         
