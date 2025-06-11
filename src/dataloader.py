@@ -41,9 +41,6 @@ class TimeSeriesDataset:
         """生成時間序列序列和標籤"""
 
         group['SMA20'] = group['Adj Close'].rolling(window=20).mean()
-        group['LMA50'] = group['Adj Close'].rolling(window=50).mean()
-        group['SVA20'] = group['Adj Close'].rolling(window=20).std()
-        group['LVA50'] = group['Adj Close'].rolling(window=50).std()
         group['EMA20'] = group['Adj Close'].ewm(span=20, adjust=False).mean()
 
         group = group.ffill().bfill()  # 前向填充和後向填充缺失值
@@ -61,7 +58,7 @@ class TimeSeriesDataset:
         # Prepare input features
         company_embeds_np = np.array(group['Company Embedding'].tolist())
         company_embeds = torch.tensor(company_embeds_np, dtype=torch.float32).to(self.device)
-        other_features = torch.tensor(group[['Date', 'Open', 'Adj Close', 'High', 'Low', 'Volume', 'SMA20', 'LMA50', 'SVA20', 'LVA50', 'EMA20']].values,
+        other_features = torch.tensor(group[['Date', 'Open', 'Adj Close', 'High', 'Low', 'Volume', 'SMA20', 'EMA20']].values,
                                      dtype=torch.float32).to(self.device)
         inputs_tensor = torch.cat((company_embeds, other_features), dim=1)
         
