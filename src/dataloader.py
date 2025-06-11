@@ -17,7 +17,7 @@ class TimeSeriesDataset:
         self.val_data = None
         self.test_data = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.input_dim = 18  # 18 features: 10 company embeddings + 8 numerical features (Date, Open, Close, High, Low, Volume, SMA5, EMA20)
+        self.input_dim = 15
         self.scalars = None
 
     def compute_min_max(self, tensor):
