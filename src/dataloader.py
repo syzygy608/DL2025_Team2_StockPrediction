@@ -147,23 +147,13 @@ class TimeSeriesDataset:
         test_X = torch.stack(test_sequences) if test_sequences else torch.empty((0, self.look_back, self.input_dim), dtype=torch.float32).to(self.device)
         test_y = torch.tensor(test_labels, dtype=torch.float).to(self.device)
 
-        """
-        if len(train_X) > 0:
-            min_embeds, range_embeds = self.compute_min_max(train_X[:, :, :4])
-            train_X[:, :, :4] = self.apply_min_max(train_X[:, :, :4], min_embeds, range_embeds)
-            if len(val_X) > 0:
-                val_X[:, :, :4] = self.apply_min_max(val_X[:, :, :4], min_embeds, range_embeds)
-            if len(test_X) > 0:
-                test_X[:, :, :4] = self.apply_min_max(test_X[:, :, :4], min_embeds, range_embeds)
-            min_val, range_val = self.compute_min_max(train_X[:, :, 5:])
-            train_X[:, :, 5:] = self.apply_min_max(train_X[:, :, 5:], min_val, range_val)
-            if len(val_X) > 0:
-                min_val, range_val = self.compute_min_max(val_X[:, :, 5:])
-                val_X[:, :, 5:] = self.apply_min_max(val_X[:, :, 5:], min_val, range_val)
-            if len(test_X) > 0:
-                min_val, range_val = self.compute_min_max(test_X[:, :, 5:])
-                test_X[:, :, 5:] = self.apply_min_max(test_X[:, :, 5:], min_val, range_val)
-        """
+        # min-max normalization
+        train_min, train_range = self.compute_min_max(train_X)
+        train_X = self.apply_min_max(train_X, train_min, train_range)
+        val_X = self.apply_min_max(val_X, train_min, train_range)
+        test_X = self.apply_min_max(test_X, train_min, train_range)
+        
+
         self.train_data = (train_X, train_y)
         self.val_data = (val_X, val_y)
         self.test_data = (test_X, test_y)
