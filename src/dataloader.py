@@ -166,8 +166,10 @@ class TimeSeriesDataset:
             min_val, range_val = self.compute_min_max(train_X[:, :, 5:])
             train_X[:, :, 5:] = self.apply_min_max(train_X[:, :, 5:], min_val, range_val)
         if len(val_X) > 0:
+            min_val, range_val = self.compute_min_max(val_X[:, :, 5:])
             val_X[:, :, 5:] = self.apply_min_max(val_X[:, :, 5:], min_val, range_val)
         if len(test_X) > 0:
+            min_val, range_val = self.compute_min_max(test_X[:, :, 5:])
             test_X[:, :, 5:] = self.apply_min_max(test_X[:, :, 5:], min_val, range_val)
 
         self.train_data = (train_X, train_y)
