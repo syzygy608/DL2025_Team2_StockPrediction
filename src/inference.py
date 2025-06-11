@@ -4,7 +4,6 @@ import argparse
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 import tqdm
 import matplotlib.pyplot as plt
 
@@ -12,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from model.model import Predictor, GRUPredictor
 from dataloader import load_dataset
-from evaluate import directional_accuracy 
+from evaluate import binary_accuracy
 
 # 設置設備
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -42,7 +41,7 @@ def evaluate_model(model, test_loader, criterion):
 
             batch_size = inputs.size(0)
             running_loss += loss.item() * batch_size
-            running_acc += directional_accuracy(outputs, targets) * batch_size
+            running_acc += binary_accuracy(outputs, targets) * batch_size
             total_samples += batch_size
 
             # 收集實際值和預測值
@@ -92,7 +91,7 @@ def main():
     print(f"Loaded model from {model_path}")
 
     # 定義損失函數
-    criterion = nn.MSELoss()
+    criterion = nn.BCEWithLogitsLoss().to(device)
 
     # 評估模型
     avg_loss, avg_acc = evaluate_model(model, test_loader, criterion)

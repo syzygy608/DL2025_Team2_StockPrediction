@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from model.model import Predictor, GRUPredictor
 from dataloader import load_dataset
-from evaluate import directional_accuracy
+from evaluate import binary_accuracy
 
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -83,7 +83,7 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
     print(f"Device: {device}")
     print(f"------------")
     # Initialize loss function and optimizer
-    criterion = nn.MSELoss()
+    criterion = nn.BCEWithLogitsLoss().to(device)  # Binary Cross-Entropy Loss
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
     # Initialize TensorBoard
@@ -97,8 +97,8 @@ def train_model(model_type, batch_size, num_epochs, learning_rate, weight_decay)
     patience = 10
     counter = 0
     for epoch in range(num_epochs):
-        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, directional_accuracy)
-        val_loss, val_acc = validate_epoch(model, val_loader, criterion, directional_accuracy)
+        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, binary_accuracy)
+        val_loss, val_acc = validate_epoch(model, val_loader, criterion, binary_accuracy)
 
         # Update learning rate
         scheduler.step()
